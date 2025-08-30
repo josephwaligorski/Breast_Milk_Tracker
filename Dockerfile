@@ -19,6 +19,12 @@ RUN npm run build
 FROM node:16-alpine AS backend
 
 WORKDIR /app
+# Build-time metadata
+ARG BUILD_COMMIT
+ARG BUILD_TIME
+ENV BUILD_COMMIT=${BUILD_COMMIT}
+ENV BUILD_TIME=${BUILD_TIME}
+ENV BUILD_VERSION=1.0.0
 
 # Install backend dependencies
 COPY backend/package*.json ./

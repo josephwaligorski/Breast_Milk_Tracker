@@ -3,6 +3,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { spawn } = require('child_process');
+const https = require('https');
 const PDFDocument = require('pdfkit');
 
 const app = express();
@@ -243,6 +244,81 @@ app.use(express.static(path.join(__dirname, '..', 'frontend', 'build')));
 
 app.get('*', (req, res) => {
   res.sendFile(path.resolve(__dirname, '..', 'frontend', 'build', 'index.html'));
+});
+
+// --- Version and Update Endpoints ---
+app.get('/api/version', (req, res) => {
+  res.json({
+    version: process.env.BUILD_VERSION || '1.0.0',
+    commit: process.env.BUILD_COMMIT || 'unknown',
+    builtAt: process.env.BUILD_TIME || null,
+    node: process.version,
+  });
+});
+
+const githubGet = (path) => new Promise((resolve, reject) => {
+  const opts = {
+    hostname: 'api.github.com',
+    path,
+    method: 'GET',
+    headers: { 'User-Agent': 'BreastMilkTracker/1.0' },
+  };
+  const req = https.request(opts, (resp) => {
+    let data = '';
+    resp.on('data', (chunk) => (data += chunk));
+    resp.on('end', () => {
+      try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+    });
+  });
+  req.on('error', reject);
+  req.end();
+});
+
+app.get('/api/update/check', async (req, res) => {
+  try {
+    const owner = 'josephwaligorski';
+    const repo = 'Breast_Milk_Tracker';
+    const latest = await githubGet(`/repos/${owner}/${repo}/commits/main`);
+    const latestSha = latest && latest.sha ? latest.sha : null;
+    const currentSha = process.env.BUILD_COMMIT || null;
+    const needsUpdate = latestSha && currentSha && latestSha !== currentSha;
+    res.json({ latestSha, currentSha, needsUpdate: !!needsUpdate });
+  } catch (e) {
+    console.error('Update check failed', e);
+    res.status(500).json({ message: 'Failed to check updates' });
+  }
+});
+
+app.post('/api/update', async (req, res) => {
+  try {
+    // Optional host script strategy: if /app/update.sh exists, run it detached
+    const allow = (process.env.ENABLE_SELF_UPDATE || '0') === '1';
+    if (!allow) {
+      return res.status(501).json({
+        message: 'Self-update disabled. SSH and run: docker compose up -d --build',
+      });
+    }
+    const scriptPath = '/app/update.sh';
+    const fsSync = require('fs');
+    if (fsSync.existsSync(scriptPath)) {
+      const child = spawn('sh', [scriptPath], {
+        stdio: 'ignore',
+        detached: true,
+      });
+      child.unref();
+      return res.json({ status: 'started' });
+    }
+    // Fallback: try docker compose if available in container (requires /var/run/docker.sock mount)
+    const child = spawn('sh', ['-lc', 'docker compose up -d --build'], {
+      stdio: 'ignore',
+      detached: true,
+    });
+    child.unref();
+    return res.json({ status: 'started' });
+  } catch (e) {
+    console.error('Self-update failed', e);
+    res.status(500).json({ message: 'Self-update failed' });
+  }
 });
 
 app.listen(PORT, () => {

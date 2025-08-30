@@ -10,6 +10,7 @@ function App() {
   const [theme, setTheme] = useState(() => (localStorage.getItem('theme') || 'light'));
   const touchStartX = useRef({});
   const touchTranslateX = useRef({});
+  const [updateInfo, setUpdateInfo] = useState({ checking: false, needsUpdate: false, latestSha: '', currentSha: '' });
   // For on-screen keypad we keep amount as a string and build it with button presses
   // (amount state is already a string). These helpers restrict to numbers + single decimal.
 
@@ -156,6 +157,31 @@ function App() {
 
   const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'));
 
+  const checkUpdate = async () => {
+    setUpdateInfo((u) => ({ ...u, checking: true }));
+    try {
+      const v = await fetch('/api/version').then(r => r.json()).catch(() => ({}));
+      const c = await fetch('/api/update/check').then(r => r.json());
+      setUpdateInfo({ checking: false, needsUpdate: !!c.needsUpdate, latestSha: c.latestSha || '', currentSha: c.currentSha || v.commit || '' });
+    } catch (e) {
+      setUpdateInfo((u) => ({ ...u, checking: false }));
+    }
+  };
+
+  const triggerUpdate = async () => {
+    try {
+      const res = await fetch('/api/update', { method: 'POST' });
+      if (!res.ok) {
+        const txt = await res.text();
+        alert(`Update not started: ${txt}`);
+        return;
+      }
+      alert('Update started. The app may restart if self-update is enabled.');
+    } catch (e) {
+      alert('Failed to trigger update');
+    }
+  };
+
   const handleDelete = async (id) => {
     try {
       const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
@@ -217,15 +243,23 @@ function App() {
   return (
     <div className="bg-gradient-to-b from-brand-50 to-white dark:from-gray-900 dark:to-gray-950 min-h-screen">
       <header className="sticky top-0 z-10 backdrop-blur bg-white/70 dark:bg-gray-900/70 border-b border-brand-100 dark:border-gray-800">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-brand-700 dark:text-brand-300">Breast Milk Tracker</h1>
           <div className="text-right hidden sm:block">
             <p className="text-xs text-gray-500 dark:text-gray-400">Total Stored</p>
             <p className="text-lg font-bold text-brand-600 dark:text-brand-400">{totalAmount.toFixed(2)} oz</p>
           </div>
-          <button onClick={toggleTheme} className="ml-3 rounded-full border border-gray-300 dark:border-gray-700 px-3 py-1 text-sm text-gray-700 dark:text-gray-200">
-            {theme === 'light' ? 'Dark' : 'Light'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={checkUpdate} className="rounded border border-gray-300 dark:border-gray-700 px-3 py-1 text-sm text-gray-700 dark:text-gray-200">
+              {updateInfo.checking ? 'Checking…' : 'Check Update'}
+            </button>
+            {updateInfo.needsUpdate && (
+              <button onClick={triggerUpdate} className="rounded bg-amber-600 text-white px-3 py-1 text-sm">Update</button>
+            )}
+            <button onClick={toggleTheme} className="rounded-full border border-gray-300 dark:border-gray-700 px-3 py-1 text-sm text-gray-700 dark:text-gray-200">
+              {theme === 'light' ? 'Dark' : 'Light'}
+            </button>
+          </div>
         </div>
       </header>
       <main className="max-w-6xl mx-auto px-4 pb-28 pt-4">
