@@ -1,0 +1,24 @@
+version: '3.8'
+services:
+  app:
+    image: breast-milk-tracker:latest
+    build: .
+    container_name: bmt
+    env_file:
+      - ./.env
+    ports:
+      - "${PORT:-5000}:5000"
+    environment:
+      # Optional: override via .env
+      NODE_ENV: ${NODE_ENV}
+      PRINTER: ${PRINTER}
+      LABEL_MEDIA: ${LABEL_MEDIA}
+      ORIENTATION: ${ORIENTATION}
+      PRINT_FIT: ${PRINT_FIT}
+    volumes:
+      - ./backend/data.json:/app/data.json
+    # On a Raspberry Pi with local CUPS, you can use host networking if desired:
+    # network_mode: host
+    # If using host CUPS, mount the client config so the container talks to host's CUPS daemon
+    # volumes:
+    #   - /etc/cups/client.conf:/etc/cups/client.conf:ro

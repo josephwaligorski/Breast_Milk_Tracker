@@ -1,0 +1,71 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Logs
+*.log
+logs/
+*.pid
+*.pid.lock
+
+# Env files
+# Keep root .env tracked
+!.env
+# Ignore local override variants
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# Ignore per-app env files by default
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+
+# Editors/IDE
+.vscode/
+.idea/
+
+# Build outputs and caches
+build/
+dist/
+coverage/
+.cache/
+.parcel-cache/
+.eslintcache
+.turbo/
+
+# Frontend
+frontend/node_modules/
+frontend/build/
+frontend/.cache/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Backend
+backend/node_modules/
+backend/*.log
+backend/*.tmp
+# Keep backend/data.json tracked; ignore backups/temp copies
+backend/data*.bak
+backend/data*.tmp
+backend/data*.backup
+backend/data.old.json
+
+# Docker
+.docker/
+*.tar
+docker-compose.override.yml
+
+# Misc
+*.swp
+*.swo

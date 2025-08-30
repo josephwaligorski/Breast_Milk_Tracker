@@ -1,0 +1,68 @@
+{
+  "sessions": [
+    {
+      "id": "77343894-e285-40c3-a3f0-ca76326ae0fb",
+      "timestamp": "2025-08-29T14:04:58.094Z",
+      "amount_oz": 0.8453514125822105,
+      "notes": "",
+      "use_by_fridge": "2025-09-02T14:04:58.094Z",
+      "use_by_frozen": "2026-03-01T15:04:58.094Z"
+    },
+    {
+      "id": "270e0edc-8a5d-4eb0-891d-d54b72c1aac7",
+      "timestamp": "2025-08-29T14:05:07.582Z",
+      "amount_oz": 3.347591593825553,
+      "notes": "",
+      "use_by_fridge": "2025-09-02T14:05:07.582Z",
+      "use_by_frozen": "2026-03-01T15:05:07.582Z"
+    },
+    {
+      "id": "abcdfff8-5adc-41e7-9509-7709a895a6c5",
+      "timestamp": "2025-08-29T15:20:30.968Z",
+      "amount_oz": 2,
+      "notes": "",
+      "use_by_fridge": "2025-09-02T15:20:30.968Z",
+      "use_by_frozen": "2026-03-01T15:20:30.968Z"
+    },
+    {
+      "id": "dcb260a9-8815-4c1f-b4f6-0a1d2e71e63c",
+      "timestamp": "2025-08-29T18:33:24.286Z",
+      "amount_oz": 2,
+      "notes": "",
+      "use_by_fridge": "2025-09-02T18:33:24.286Z",
+      "use_by_frozen": "2026-03-01T18:33:24.286Z"
+    },
+    {
+      "id": "a259cd0e-105b-4db6-a41f-971dfdb1b8ea",
+      "timestamp": "2025-08-29T18:33:35.532Z",
+      "amount_oz": 2,
+      "notes": "",
+      "use_by_fridge": "2025-09-02T18:33:35.532Z",
+      "use_by_frozen": "2026-03-01T18:33:35.532Z"
+    },
+    {
+      "id": "e05adb89-74df-4c0e-be88-96c3dbd47605",
+      "timestamp": "2025-08-29T18:52:00.404Z",
+      "amount_oz": 2.5,
+      "notes": "",
+      "use_by_fridge": "2025-09-02T18:52:00.404Z",
+      "use_by_frozen": "2026-03-01T18:52:00.404Z"
+    },
+    {
+      "id": "36472166-0799-4f9a-ad43-95551a96117d",
+      "timestamp": "2025-08-29T18:53:52.287Z",
+      "amount_oz": 2.5,
+      "notes": "",
+      "use_by_fridge": "2025-09-02T18:53:52.287Z",
+      "use_by_frozen": "2026-03-01T18:53:52.287Z"
+    },
+    {
+      "id": "fb3cc656-1e04-48b8-9edb-51ca94bc9f4d",
+      "timestamp": "2025-08-29T18:59:57.015Z",
+      "amount_oz": 2.5,
+      "notes": "",
+      "use_by_fridge": "2025-09-02T18:59:57.015Z",
+      "use_by_frozen": "2026-03-01T18:59:57.015Z"
+    }
+  ]
+}
