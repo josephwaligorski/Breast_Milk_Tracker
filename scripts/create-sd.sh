@@ -33,7 +33,7 @@ Usage: $0 -d /dev/sdX [options]
 Required:
   -d, --device DEV        Target block device (e.g., /dev/sdX, /dev/mmcblk0)
 
-Image source (choose one):
+Image source (choose one; if omitted, the script will try to auto-pick a local image from PWD or ~/Downloads):
   -f, --file PATH         Local image file (.img, .img.xz, .zip)
   -i, --image-url URL     Direct URL to image (.img.xz or .zip)
 
@@ -73,8 +73,51 @@ done
 
 # Validate
 if [[ -z "$DEST" ]]; then echo "--device is required" >&2; usage; exit 1; fi
+# If neither a file nor a URL provided, try to auto-detect a local image
 if [[ -z "$IMAGE_FILE" && -z "$IMAGE_URL" ]]; then
-  echo "Provide an image with --file or --image-url" >&2; usage; exit 1
+  CANDIDATES=()
+  # Search current directory and Downloads for likely images
+  for dir in "$PWD" "$HOME/Downloads"; do
+    [[ -d "$dir" ]] || continue
+    while IFS= read -r -d '' f; do CANDIDATES+=("$f"); done < <(find "$dir" -maxdepth 1 -type f \( -name "*.img" -o -name "*.img.xz" -o -name "*.zip" \) -print0)
+  done
+  # Prefer files with raspios/raspberry in the name
+  PREF=()
+  for f in "${CANDIDATES[@]}"; do
+    if [[ "$f" =~ [Rr]aspios|[Rr]aspberry|[Pp]i ]]; then PREF+=("$f"); fi
+  done
+  if [[ ${#PREF[@]} -gt 0 ]]; then CANDIDATES=("${PREF[@]}"); fi
+
+  if [[ ${#CANDIDATES[@]} -eq 0 ]]; then
+    echo "No local image found. Provide --file or --image-url." >&2; usage; exit 1
+  # If exactly one candidate, or running with -y (non-interactive), pick newest automatically
+  elif [[ ${#CANDIDATES[@]} -eq 1 || $YES -eq 1 ]]; then
+    # Pick the most recent by mtime if multiple and non-interactive
+    if [[ ${#CANDIDATES[@]} -gt 1 ]]; then
+      IMAGE_FILE=$(ls -t -- "${CANDIDATES[@]}" | head -n1)
+    else
+      IMAGE_FILE="${CANDIDATES[0]}"
+    fi
+    echo "Using local image: $IMAGE_FILE"
+  else
+    echo "Found local images:"
+    i=1
+    for f in "${CANDIDATES[@]}"; do echo "  $i) $f"; ((i++)); done
+    read -rp "Select image [1-${#CANDIDATES[@]}] or ENTER for newest: " idx
+    if [[ -z "$idx" ]]; then
+      IMAGE_FILE=$(ls -t -- "${CANDIDATES[@]}" | head -n1)
+    else
+      if [[ "$idx" -lt 1 || "$idx" -gt ${#CANDIDATES[@]} ]]; then echo "Invalid selection" >&2; exit 1; fi
+      IMAGE_FILE="${CANDIDATES[$((idx-1))]}"
+    fi
+    echo "Using local image: $IMAGE_FILE"
+  fi
+fi
+
+# If both a local file and a URL are provided, prefer the local file
+if [[ -n "$IMAGE_FILE" && -n "$IMAGE_URL" ]]; then
+  echo "Both --file and --image-url provided; preferring local file: $IMAGE_FILE" >&2
+  IMAGE_URL=""
 fi
 if [[ ! -b "$DEST" ]]; then echo "$DEST is not a block device" >&2; exit 1; fi
 
@@ -88,6 +131,7 @@ require awk
 require sed
 require tr
 require xargs
+require file
 
 # Optional tools
 XZ=$(command -v xz || true)
@@ -117,8 +161,31 @@ if [[ -n "$IMAGE_FILE" ]]; then
 elif [[ -n "$IMAGE_URL" ]]; then
   if [[ -z "$CURL" ]]; then echo "curl required to download image" >&2; exit 1; fi
   echo "Downloading image..."
-  OUT="$TMPDIR/image"
+  # Try to learn the final filename/extension from the effective URL first
+  EFFECTIVE_URL=$(curl -sSL -o /dev/null -w '%{url_effective}' "$IMAGE_URL" || true)
+  BASENAME="$(basename -- "$EFFECTIVE_URL")"
+  CAND_EXT=""
+  if [[ "$BASENAME" =~ \.(img\.xz|img|zip|xz)$ ]]; then
+    CAND_EXT=".${BASH_REMATCH[1]}"
+  fi
+  OUT_BASE="$TMPDIR/image"
+  OUT="$OUT_BASE${CAND_EXT}"
   curl -L "$IMAGE_URL" -o "$OUT"
+  # If the extension is still unknown, infer from MIME type
+  if [[ "$OUT" == "$OUT_BASE" ]]; then
+    MIME=$(file -b --mime-type "$OUT" || true)
+    case "$MIME" in
+      application/x-xz)
+        mv "$OUT" "$OUT_BASE.xz"; OUT="$OUT_BASE.xz";;
+      application/zip)
+        mv "$OUT" "$OUT_BASE.zip"; OUT="$OUT_BASE.zip";;
+      application/octet-stream)
+        # Heuristic: raw disk image often detected as DOS/MBR boot sector
+        if file -b "$OUT" | grep -qiE 'boot sector|MBR|partition table|DOS'; then
+          mv "$OUT" "$OUT_BASE.img"; OUT="$OUT_BASE.img";
+        fi;;
+    esac
+  fi
   IMG_PATH="$OUT"
 fi
 
