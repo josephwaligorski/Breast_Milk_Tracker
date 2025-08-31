@@ -195,3 +195,49 @@ If output is clipped/small, experiment with `LABEL_MEDIA`, `PRINT_FIT`, and `ORI
 docker compose down
 docker rmi breast-milk-tracker:latest
 ```
+
+---
+
+## Automated Kiosk Setup
+
+For a one-time automated setup on Raspberry Pi OS (with Desktop) that installs the app, configures full-screen kiosk, and disables screen blanking:
+
+1. Clone or copy this repo onto the Pi and enter the folder:
+
+- git clone <https://github.com/josephwaligorski/Breast_Milk_Tracker.git>
+- cd Breast_Milk_Tracker
+
+1. Run the orchestrated setup (it will prompt for sudo or elevate automatically):
+
+- sudo bash scripts/setup-system.sh
+
+What it does:
+
+- scripts/bmt-firstboot.sh: installs Docker + compose plugin, clones/builds if required, and starts the containers.
+- scripts/setup-kiosk.sh: sets desktop autologin, installs Chromium, creates an autostart desktop entry to launch Chromium in kiosk to <http://localhost:5000> (after a brief delay), and appends xset settings to keep the display awake.
+- scripts/setup-printer.sh: detects and configures the printer for use with the app.
+
+After completion, reboot the Pi. On boot, it should log into the desktop automatically and open the Breast Milk Tracker in full-screen.
+
+### Optional: One-step SD flashing with kiosk + first-boot installer
+
+The helper script `scripts/create-sd.sh` can now flash Raspberry Pi OS to an SD card and pre-wire:
+
+- SSH + hostname + Wi‑Fi credentials
+- Desktop autologin and Chromium kiosk (to <http://localhost:5000> by default)
+- A first-boot installer service that installs Docker + Compose + Chromium and launches the app
+
+Highlights:
+
+- If you don’t pass an image, it will auto-pick the latest official Desktop image (arm64). Add `--lite` to choose the Lite image.
+- Use `--no-kiosk` to skip kiosk/first-boot wiring (just headless basics).
+- Use `--kiosk-url <URL>` to customize the page Chromium opens on login.
+
+Flags reference (subset):
+
+- `-d, --device /dev/sdX` target device (required)
+- `-f, --file <path>` or `-i, --image-url <url>` (optional; otherwise auto-downloads)
+- `-H/--hostname`, `-u/--user`, `-p/--pass`, `-S/--wifi-ssid`, `-P/--wifi-pass`, `-C/--wifi-country`
+- `--no-kiosk`, `--kiosk-url <url>`, `--lite`, `-y/--yes`
+
+Result: Insert the SD in the Pi, power on, wait a few minutes for the first-boot installer to complete, and the kiosk should appear automatically.

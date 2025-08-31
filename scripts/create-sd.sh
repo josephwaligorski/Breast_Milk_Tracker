@@ -25,6 +25,10 @@ WIFI_SSID=""
 WIFI_PASS=""
 WIFI_COUNTRY="US"
 YES=0
+# Kiosk and image selection options
+KIOSK=1
+KIOSK_URL="http://localhost:5000"
+DESKTOP_IMAGE=1  # Prefer Desktop image when auto-downloading for kiosk
 
 usage() {
   cat <<EOF
@@ -47,6 +51,9 @@ Headless config (optional):
 
 Other:
   -y, --yes               Do not prompt for destructive confirmation
+  --no-kiosk              Skip kiosk/autologin/app setup; only flash + basic headless config
+  --kiosk-url URL         URL for Chromium kiosk (default: http://localhost:5000)
+  --lite                  Prefer Lite image when auto-downloading (no desktop)
   -h, --help              Show this help
 EOF
 }
@@ -66,6 +73,9 @@ while [[ ${1-} ]]; do
     -P|--wifi-pass) WIFI_PASS="$2"; shift 2;;
     -C|--wifi-country) WIFI_COUNTRY="$2"; shift 2;;
     -y|--yes) YES=1; shift;;
+  --no-kiosk) KIOSK=0; shift;;
+  --kiosk-url) KIOSK_URL="$2"; shift 2;;
+  --lite) DESKTOP_IMAGE=0; shift;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown arg: $1" >&2; usage; exit 1;;
   esac
@@ -89,7 +99,17 @@ if [[ -z "$IMAGE_FILE" && -z "$IMAGE_URL" ]]; then
   if [[ ${#PREF[@]} -gt 0 ]]; then CANDIDATES=("${PREF[@]}"); fi
 
   if [[ ${#CANDIDATES[@]} -eq 0 ]]; then
-    echo "No local image found. Provide --file or --image-url." >&2; usage; exit 1
+    # No local image found; fall back to official latest URLs
+    if ! command -v curl >/dev/null 2>&1; then
+      echo "No local image found and curl missing. Install curl or pass --file/--image-url." >&2; exit 1
+    fi
+    if [[ $DESKTOP_IMAGE -eq 1 ]]; then
+      IMAGE_URL="https://downloads.raspberrypi.com/raspios_arm64_latest"
+      echo "No local image found. Auto-selecting Desktop (arm64) image: $IMAGE_URL"
+    else
+      IMAGE_URL="https://downloads.raspberrypi.com/raspios_lite_arm64_latest"
+      echo "No local image found. Auto-selecting Lite (arm64) image: $IMAGE_URL"
+    fi
   # If exactly one candidate, or running with -y (non-interactive), pick newest automatically
   elif [[ ${#CANDIDATES[@]} -eq 1 || $YES -eq 1 ]]; then
     # Pick the most recent by mtime if multiple and non-interactive
@@ -227,15 +247,21 @@ sleep 3
 sudo partprobe "$DEST" || true
 sleep 2
 
-# Determine boot partition name
-PART_SUFFIX="1"
-if [[ "$DEST" =~ [0-9]$ ]]; then PART_SUFFIX="p1"; fi
-BOOT_PART="${DEST}${PART_SUFFIX}"
+# Determine boot/root partition names (handle /dev/sda vs /dev/mmcblk0)
+P1="1"; P2="2"
+if [[ "$DEST" =~ [0-9]$ ]]; then P1="p1"; P2="p2"; fi
+BOOT_PART="${DEST}${P1}"
+ROOT_PART="${DEST}${P2}"
 
 # Mount boot partition
 BOOT_MNT="$TMPDIR/boot"
 mkdir -p "$BOOT_MNT"
 sudo mount "$BOOT_PART" "$BOOT_MNT"
+
+# Mount root partition (for kiosk and first-boot wiring)
+ROOT_MNT="$TMPDIR/root"
+mkdir -p "$ROOT_MNT"
+sudo mount "$ROOT_PART" "$ROOT_MNT"
 
 # Enable SSH
 sudo touch "$BOOT_MNT/ssh"
@@ -265,7 +291,111 @@ else
   echo "openssl not found; skipping userconf.txt (default OS user will be required)" >&2
 fi
 
+# Kiosk/autologin + first-boot installer wiring (optional)
+if [[ $KIOSK -eq 1 ]]; then
+  echo "Configuring desktop autologin, kiosk autostart, and first-boot installer..."
+
+  # Ensure LightDM autologin for the specified user
+  sudo mkdir -p "$ROOT_MNT/etc/lightdm/lightdm.conf.d"
+  sudo tee "$ROOT_MNT/etc/lightdm/lightdm.conf.d/12-autologin.conf" >/dev/null <<CONF
+[Seat:*]
+autologin-user=$USERNAME
+autologin-user-timeout=0
+user-session=lightdm-autologin
+CONF
+
+  # Kiosk launcher script that waits for X and Chromium then opens URL
+  sudo tee "$ROOT_MNT/usr/local/bin/kiosk.sh" >/dev/null <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+export DISPLAY=:0
+# Wait for X/Wayland
+for i in $(seq 1 60); do
+  pgrep -a Xorg >/dev/null 2>&1 || pgrep -a wayfire >/dev/null 2>&1 && break || true
+  sleep 1
+done
+# Disable screen blanking
+command -v xset >/dev/null 2>&1 && { xset s off || true; xset -dpms || true; xset s noblank || true; }
+# Wait for chromium to be installed (first-boot may be installing it)
+for i in $(seq 1 120); do
+  B=/usr/bin/chromium-browser; [[ -x "$B" ]] || B=/usr/bin/chromium
+  if [[ -x "$B" ]]; then
+    break
+  fi
+  sleep 2
+done
+# Small grace to allow server start
+sleep 10
+exec "$B" --noerrdialogs --disable-infobars --kiosk --incognito --start-fullscreen --disable-translate --overscroll-history-navigation=0 KIOSK_URL_PLACEHOLDER
+SH
+  sudo chmod +x "$ROOT_MNT/usr/local/bin/kiosk.sh"
+  sudo sed -i "s|KIOSK_URL_PLACEHOLDER|$KIOSK_URL|g" "$ROOT_MNT/usr/local/bin/kiosk.sh"
+
+  # Autostart .desktop entry for user session
+  sudo mkdir -p "$ROOT_MNT/home/$USERNAME/.config/autostart"
+  sudo tee "$ROOT_MNT/home/$USERNAME/.config/autostart/bmt-kiosk.desktop" >/dev/null <<'DESK'
+[Desktop Entry]
+Type=Application
+Name=Breast Milk Tracker Kiosk
+Exec=/usr/local/bin/kiosk.sh
+X-GNOME-Autostart-enabled=true
+Terminal=false
+Categories=Utility;
+DESK
+  sudo chown -R 1000:1000 "$ROOT_MNT/home/$USERNAME/.config" || true
+
+  # LXDE session autostart to keep display awake
+  sudo mkdir -p "$ROOT_MNT/etc/xdg/lxsession/LXDE-pi"
+  AUTOSTART_FILE="$ROOT_MNT/etc/xdg/lxsession/LXDE-pi/autostart"
+  sudo touch "$AUTOSTART_FILE"
+  grep -q '^@xset s off$' "$AUTOSTART_FILE" || echo '@xset s off' | sudo tee -a "$AUTOSTART_FILE" >/dev/null
+  grep -q '^@xset -dpms$' "$AUTOSTART_FILE" || echo '@xset -dpms' | sudo tee -a "$AUTOSTART_FILE" >/dev/null
+  grep -q '^@xset s noblank$' "$AUTOSTART_FILE" || echo '@xset s noblank' | sudo tee -a "$AUTOSTART_FILE" >/dev/null
+
+  # First-boot installer: installs Docker, compose plugin, git, and Chromium; then starts the app
+  sudo tee "$ROOT_MNT/usr/local/sbin/bmt-firstboot.sh" >/dev/null <<'FB'
+#!/usr/bin/env bash
+set -euo pipefail
+exec 1>>/var/log/bmt-firstboot.log 2>&1 || true
+STAMP=/var/lib/bmt-firstboot.done
+if [[ -f "$STAMP" ]]; then echo "[bmt] already-done $(date -Is)"; exit 0; fi
+echo "[bmt] starting $(date -Is)"
+export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y docker.io docker-compose-plugin git chromium-browser || apt-get install -y docker.io docker-compose-plugin git chromium || true
+systemctl enable --now docker || true
+mkdir -p /opt/bmt
+cd /opt/bmt
+if [[ ! -d Breast_Milk_Tracker ]]; then
+  git clone https://github.com/josephwaligorski/Breast_Milk_Tracker.git || true
+fi
+cd Breast_Milk_Tracker || exit 0
+/usr/bin/docker compose up -d || /usr/bin/docker-compose up -d || true
+mkdir -p "$(dirname "$STAMP")"; touch "$STAMP"
+echo "[bmt] finished $(date -Is)"
+FB
+  sudo chmod +x "$ROOT_MNT/usr/local/sbin/bmt-firstboot.sh"
+
+  sudo tee "$ROOT_MNT/etc/systemd/system/bmt-firstboot.service" >/dev/null <<'SVC'
+[Unit]
+Description=Breast Milk Tracker first-boot installer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/bmt-firstboot.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+SVC
+  sudo mkdir -p "$ROOT_MNT/etc/systemd/system/multi-user.target.wants"
+  sudo ln -sf /etc/systemd/system/bmt-firstboot.service "$ROOT_MNT/etc/systemd/system/multi-user.target.wants/bmt-firstboot.service"
+fi
+
 # Done
 sudo sync
+sudo umount "$ROOT_MNT" || true
 sudo umount "$BOOT_MNT"
 echo "SD card is ready. Insert into Raspberry Pi and power on."
