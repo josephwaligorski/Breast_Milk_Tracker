@@ -265,9 +265,12 @@ function App() {
                     </button>
                   </div>
                 </div>
+              </div>
+              {/* Compact conversion display - fixed width to prevent layout shift */}
+              <div className="w-24 text-right flex-shrink-0">
                 {amount && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                    ≈ {unit === 'oz' ? ozToMl(parseFloat(amount)) : mlToOz(parseFloat(amount))} {unit === 'oz' ? 'ml' : 'oz'}
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    ≈{unit === 'oz' ? ozToMl(parseFloat(amount)) : mlToOz(parseFloat(amount))}{unit === 'oz' ? 'ml' : 'oz'}
                   </p>
                 )}
               </div>
