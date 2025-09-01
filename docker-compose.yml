@@ -6,8 +6,6 @@ services:
     container_name: bmt
     env_file:
       - ./.env
-    ports:
-      - "${PORT:-5000}:5000"
     environment:
       # Optional: override via .env
       NODE_ENV: ${NODE_ENV}
@@ -23,7 +21,5 @@ services:
     # Enable access to USB devices for direct printer access
     devices:
       - /dev/usb:/dev/usb
-    # Add privileges for printer access
-    privileged: false
     # Use host network to access CUPS daemon
     network_mode: host
