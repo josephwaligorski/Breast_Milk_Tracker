@@ -29,6 +29,11 @@ YES=0
 KIOSK=1
 KIOSK_URL="http://localhost:5000"
 DESKTOP_IMAGE=1  # Prefer Desktop image when auto-downloading for kiosk
+# Preload options
+PRELOAD_REPO=1
+PREBUILD_IMAGE=1
+REPO_SRC_DIR="$(pwd)"
+IMAGE_TAG="breast-milk-tracker:latest"
 
 usage() {
   cat <<EOF
@@ -54,6 +59,10 @@ Other:
   --no-kiosk              Skip kiosk/autologin/app setup; only flash + basic headless config
   --kiosk-url URL         URL for Chromium kiosk (default: http://localhost:5000)
   --lite                  Prefer Lite image when auto-downloading (no desktop)
+  --no-preload-repo       Do not copy this repo to the SD card (default: copy into /opt/bmt/Breast_Milk_Tracker)
+  --no-prebuild-image     Do not prebuild Docker image (default: try to build linux/arm64 and bundle as tar)
+  --repo-dir PATH         Source repo to preload (default: current directory)
+  --image-tag TAG         Docker image tag to use (default: breast-milk-tracker:latest)
   -h, --help              Show this help
 EOF
 }
@@ -76,6 +85,10 @@ while [[ ${1-} ]]; do
   --no-kiosk) KIOSK=0; shift;;
   --kiosk-url) KIOSK_URL="$2"; shift 2;;
   --lite) DESKTOP_IMAGE=0; shift;;
+  --no-preload-repo) PRELOAD_REPO=0; shift;;
+  --no-prebuild-image) PREBUILD_IMAGE=0; shift;;
+  --repo-dir) REPO_SRC_DIR="$2"; shift 2;;
+  --image-tag) IMAGE_TAG="$2"; shift 2;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown arg: $1" >&2; usage; exit 1;;
   esac
@@ -159,6 +172,7 @@ UNZIP=$(command -v unzip || true)
 CURL=$(command -v curl || true)
 PV=$(command -v pv || true)
 OPENSSL=$(command -v openssl || true)
+DOCKER=$(command -v docker || true)
 
 # Confirm destructive action
 if [[ $YES -ne 1 ]]; then
@@ -366,11 +380,17 @@ apt-get install -y docker.io docker-compose-plugin git chromium-browser || apt-g
 systemctl enable --now docker || true
 mkdir -p /opt/bmt
 cd /opt/bmt
+if [[ -f bmt-image.tar ]]; then
+  echo "[bmt] Loading prebuilt Docker image..."
+  docker load -i bmt-image.tar || true
+fi
 if [[ ! -d Breast_Milk_Tracker ]]; then
+  echo "[bmt] Preloaded repo not found; cloning..."
   git clone https://github.com/josephwaligorski/Breast_Milk_Tracker.git || true
 fi
 cd Breast_Milk_Tracker || exit 0
-/usr/bin/docker compose up -d || /usr/bin/docker-compose up -d || true
+# Build if no image was preloaded
+/usr/bin/docker compose up -d --build || /usr/bin/docker-compose up -d --build || true
 mkdir -p "$(dirname "$STAMP")"; touch "$STAMP"
 echo "[bmt] finished $(date -Is)"
 FB
@@ -392,6 +412,45 @@ WantedBy=multi-user.target
 SVC
   sudo mkdir -p "$ROOT_MNT/etc/systemd/system/multi-user.target.wants"
   sudo ln -sf /etc/systemd/system/bmt-firstboot.service "$ROOT_MNT/etc/systemd/system/multi-user.target.wants/bmt-firstboot.service"
+fi
+
+# Preload repository into rootfs (optional)
+if [[ $PRELOAD_REPO -eq 1 ]]; then
+  echo "Preloading repository from $REPO_SRC_DIR into SD card..."
+  if [[ ! -d "$REPO_SRC_DIR" ]]; then
+    echo "Repo source dir not found: $REPO_SRC_DIR" >&2
+  else
+    sudo mkdir -p "$ROOT_MNT/opt/bmt"
+    # Copy repo excluding typical junk
+    rsync -a --delete --exclude .git/ --exclude node_modules/ --exclude .cache/ \
+      --exclude dist/ --exclude buildx-cache/ --exclude '*.log' \
+      "$REPO_SRC_DIR/" "$ROOT_MNT/opt/bmt/Breast_Milk_Tracker/"
+    # Ensure permissions are accessible to default user (uid 1000 on Pi images)
+    sudo chown -R 1000:1000 "$ROOT_MNT/opt/bmt/Breast_Milk_Tracker" || true
+  fi
+fi
+
+# Optionally prebuild linux/arm64 Docker image and bundle as tar
+if [[ $PREBUILD_IMAGE -eq 1 ]]; then
+  if [[ -n "$DOCKER" ]]; then
+    echo "Attempting to prebuild Docker image ($IMAGE_TAG) for linux/arm64..."
+    # Ensure buildx exists
+    if ! docker buildx ls >/dev/null 2>&1; then
+      echo "Creating docker buildx builder..."
+      docker buildx create --use >/dev/null 2>&1 || true
+    fi
+    TARBALL="$TMPDIR/bmt-image.tar"
+    # Build and export as single-arch tar
+    if docker buildx build --platform linux/arm64 -t "$IMAGE_TAG" --output type=docker,dest="$TARBALL" "$REPO_SRC_DIR"; then
+      echo "Copying prebuilt image tar to SD card..."
+      sudo mkdir -p "$ROOT_MNT/opt/bmt"
+      sudo cp "$TARBALL" "$ROOT_MNT/opt/bmt/bmt-image.tar"
+    else
+      echo "Warning: Failed to prebuild ARM64 image. The Pi will build on first boot." >&2
+    fi
+  else
+    echo "Docker not found on host; skipping prebuild of image." >&2
+  fi
 fi
 
 # Done
