@@ -434,19 +434,28 @@ fi
 if [[ $PREBUILD_IMAGE -eq 1 ]]; then
   if [[ -n "$DOCKER" ]]; then
     echo "Attempting to prebuild Docker image ($IMAGE_TAG) for linux/arm64..."
-    # Ensure buildx exists
+    # Ensure buildx exists and use docker-container driver for exporters
     if ! docker buildx ls >/dev/null 2>&1; then
-      echo "Creating docker buildx builder..."
-      docker buildx create --use >/dev/null 2>&1 || true
+      echo "Creating docker buildx builder (docker-container)..."
+      docker buildx create --name bmtx --driver docker-container --use >/dev/null 2>&1 || true
     fi
+    # Bootstrap QEMU emulation if needed
+    docker buildx inspect --bootstrap >/dev/null 2>&1 || true
     TARBALL="$TMPDIR/bmt-image.tar"
-    # Build and export as single-arch tar
-    if docker buildx build --platform linux/arm64 -t "$IMAGE_TAG" --output type=docker,dest="$TARBALL" "$REPO_SRC_DIR"; then
+    # Preferred: export directly to tar (no daemon load)
+    if docker buildx build --platform linux/arm64 -t "$IMAGE_TAG" --output type=tar,dest="$TARBALL" "$REPO_SRC_DIR"; then
       echo "Copying prebuilt image tar to SD card..."
       sudo mkdir -p "$ROOT_MNT/opt/bmt"
       sudo cp "$TARBALL" "$ROOT_MNT/opt/bmt/bmt-image.tar"
     else
-      echo "Warning: Failed to prebuild ARM64 image. The Pi will build on first boot." >&2
+      echo "Direct tar export failed; trying load+save fallback..." >&2
+      if docker buildx build --platform linux/arm64 -t "$IMAGE_TAG" --load "$REPO_SRC_DIR" && docker save -o "$TARBALL" "$IMAGE_TAG"; then
+        echo "Copying prebuilt image tar to SD card..."
+        sudo mkdir -p "$ROOT_MNT/opt/bmt"
+        sudo cp "$TARBALL" "$ROOT_MNT/opt/bmt/bmt-image.tar"
+      else
+        echo "Warning: Failed to prebuild ARM64 image. The Pi will build on first boot." >&2
+      fi
     fi
   else
     echo "Docker not found on host; skipping prebuild of image." >&2
