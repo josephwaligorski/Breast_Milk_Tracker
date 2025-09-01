@@ -10,7 +10,6 @@ function App() {
   const [theme, setTheme] = useState(() => (localStorage.getItem('theme') || 'light'));
   const touchStartX = useRef({});
   const touchTranslateX = useRef({});
-  const [updateInfo, setUpdateInfo] = useState({ checking: false, needsUpdate: false, latestSha: '', currentSha: '' });
   // For on-screen keypad we keep amount as a string and build it with button presses
   // (amount state is already a string). These helpers restrict to numbers + single decimal.
 
@@ -157,31 +156,6 @@ function App() {
 
   const toggleTheme = () => setTheme((t) => (t === 'light' ? 'dark' : 'light'));
 
-  const checkUpdate = async () => {
-    setUpdateInfo((u) => ({ ...u, checking: true }));
-    try {
-      const v = await fetch('/api/version').then(r => r.json()).catch(() => ({}));
-      const c = await fetch('/api/update/check').then(r => r.json());
-      setUpdateInfo({ checking: false, needsUpdate: !!c.needsUpdate, latestSha: c.latestSha || '', currentSha: c.currentSha || v.commit || '' });
-    } catch (e) {
-      setUpdateInfo((u) => ({ ...u, checking: false }));
-    }
-  };
-
-  const triggerUpdate = async () => {
-    try {
-      const res = await fetch('/api/update', { method: 'POST' });
-      if (!res.ok) {
-        const txt = await res.text();
-        alert(`Update not started: ${txt}`);
-        return;
-      }
-      alert('Update started. The app may restart if self-update is enabled.');
-    } catch (e) {
-      alert('Failed to trigger update');
-    }
-  };
-
   const handleDelete = async (id) => {
     try {
       const res = await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
@@ -241,48 +215,42 @@ function App() {
   const totalMl = useMemo(() => (totalAmount * 29.5735).toFixed(0), [totalAmount]);
 
   return (
-    <div className="bg-gradient-to-b from-brand-50 to-white dark:from-gray-900 dark:to-gray-950 min-h-screen overflow-hidden">
-      <header className="sticky top-0 z-10 backdrop-blur bg-white/70 dark:bg-gray-900/70 border-b border-brand-100 dark:border-gray-800">
-        <div className="max-w-6xl mx-auto px-3 py-2 flex items-center justify-between gap-2">
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-brand-700 dark:text-brand-300">Breast Milk Tracker</h1>
-          <div className="text-right hidden sm:block">
+    <div className="bg-gradient-to-b from-brand-50 to-white dark:from-gray-900 dark:to-gray-950 h-screen overflow-hidden">
+      <header className="backdrop-blur bg-white/70 dark:bg-gray-900/70 border-b border-brand-100 dark:border-gray-800">
+        <div className="max-w-6xl mx-auto px-2 py-1 flex items-center justify-between gap-2">
+          <h1 className="text-sm font-bold tracking-tight text-brand-700 dark:text-brand-300">Breast Milk Tracker</h1>
+          <div className="text-right">
             <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
             <p className="text-sm font-bold text-brand-600 dark:text-brand-400">{totalAmount.toFixed(2)} oz</p>
           </div>
           <div className="flex items-center gap-1">
-            <button onClick={checkUpdate} className="rounded border border-gray-300 dark:border-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200">
-              {updateInfo.checking ? 'Checking…' : 'Update'}
-            </button>
-            {updateInfo.needsUpdate && (
-              <button onClick={triggerUpdate} className="rounded bg-amber-600 text-white px-2 py-1 text-xs">Update</button>
-            )}
-            <button onClick={toggleTheme} className="rounded-full border border-gray-300 dark:border-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200">
+            <button onClick={toggleTheme} className="rounded border border-gray-300 dark:border-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200">
               {theme === 'light' ? '🌙' : '☀️'}
             </button>
           </div>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto px-3 pb-16 pt-2 h-[calc(100vh-4rem)]">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-full">
-          <section className="rounded-xl bg-white dark:bg-gray-900 shadow-soft p-3">
-            <div className="flex items-end justify-between gap-3">
+      <main className="px-2 py-1 h-[calc(100vh-3rem)] flex gap-2">
+          {/* Left side - Input and Keypad - Fixed width for 800px screen */}
+          <section className="w-80 rounded-lg bg-white dark:bg-gray-900 shadow-soft p-2 flex flex-col">
+            <div className="flex items-center justify-between gap-2 mb-2">
               <div className="flex-1">
                 <label htmlFor="amount" className="block text-xs font-medium text-gray-700 dark:text-gray-300">Amount</label>
-                <div className="mt-1 flex items-stretch rounded-lg ring-1 ring-gray-300 focus-within:ring-2 focus-within:ring-brand-500 overflow-hidden">
+                <div className="mt-1 flex items-stretch rounded ring-1 ring-gray-300 focus-within:ring-2 focus-within:ring-brand-500 overflow-hidden">
                   <input
                     inputMode="decimal"
                     type="text"
                     id="amount"
                     value={amount}
                     readOnly
-                    className="flex-1 px-3 py-2 text-xl sm:text-2xl font-semibold placeholder-gray-300 focus:outline-none bg-transparent text-gray-900 dark:text-gray-100"
+                    className="flex-1 px-2 py-1 text-lg font-semibold placeholder-gray-300 focus:outline-none bg-transparent text-gray-900 dark:text-gray-100"
                     placeholder="0.0"
                   />
                   <div className="flex">
                     <button
                       type="button"
                       onClick={() => handleUnitToggle('oz')}
-                      className={`px-3 py-2 text-sm font-semibold ${unit === 'oz' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
+                      className={`px-2 py-1 text-xs font-semibold ${unit === 'oz' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
                       aria-pressed={unit === 'oz'}
                     >
                       oz
@@ -290,7 +258,7 @@ function App() {
                     <button
                       type="button"
                       onClick={() => handleUnitToggle('ml')}
-                      className={`px-3 py-2 text-sm font-semibold ${unit === 'ml' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
+                      className={`px-2 py-1 text-xs font-semibold ${unit === 'ml' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
                       aria-pressed={unit === 'ml'}
                     >
                       ml
@@ -303,41 +271,36 @@ function App() {
                   </p>
                 )}
               </div>
-              <div className="hidden sm:flex flex-col items-end min-w-[8rem]">
-                <p className="text-xs text-gray-500">Total</p>
-                <p className="text-lg font-bold text-brand-600">{totalAmount.toFixed(2)} oz</p>
-                <p className="text-xs text-gray-400">(~{totalMl} ml)</p>
-              </div>
             </div>
 
-            <div className="mt-3">
+            <div className="mb-2 flex-shrink-0">
               <label htmlFor="notes" className="block text-xs font-medium text-gray-700 dark:text-gray-300">Notes</label>
               <textarea
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows="2"
-                className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-700 bg-transparent text-sm text-gray-900 dark:text-gray-100 focus:border-brand-500 focus:ring-brand-500"
-                placeholder="e.g., Left side, morning pump"
+                rows="1"
+                className="mt-1 block w-full rounded text-xs border-gray-300 dark:border-gray-700 bg-transparent text-gray-900 dark:text-gray-100 focus:border-brand-500 focus:ring-brand-500"
+                placeholder="e.g., Left side, morning"
               />
             </div>
 
-            {/* Compact on-screen keypad */}
-            <div className="mt-3 select-none">
-              <div className="grid grid-cols-3 gap-2">
+            {/* Ultra-compact keypad for 800x480 */}
+            <div className="flex-1 select-none">
+              <div className="grid grid-cols-3 gap-1 mb-1">
                 {[1,2,3,4,5,6,7,8,9].map(n => (
-                  <button key={n} onClick={() => appendDigit(String(n))} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-2 text-lg font-bold active:scale-95">{n}</button>
+                  <button key={n} onClick={() => appendDigit(String(n))} className="rounded bg-gray-100 dark:bg-gray-800 py-2 text-sm font-bold active:scale-95">{n}</button>
                 ))}
-                <button onClick={() => appendDigit('.')} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-2 text-lg font-bold active:scale-95">.</button>
-                <button onClick={() => appendDigit('0')} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-2 text-lg font-bold active:scale-95">0</button>
-                <button onClick={backspace} className="rounded-lg bg-amber-500 text-white py-2 text-lg font-semibold active:scale-95">⌫</button>
+                <button onClick={() => appendDigit('.')} className="rounded bg-gray-100 dark:bg-gray-800 py-2 text-sm font-bold active:scale-95">.</button>
+                <button onClick={() => appendDigit('0')} className="rounded bg-gray-100 dark:bg-gray-800 py-2 text-sm font-bold active:scale-95">0</button>
+                <button onClick={backspace} className="rounded bg-amber-500 text-white py-2 text-sm font-semibold active:scale-95">⌫</button>
               </div>
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <button onClick={clearAll} className="rounded-lg bg-gray-200 dark:bg-gray-700 py-2 text-sm font-semibold active:scale-95">Clear</button>
+              <div className="grid grid-cols-2 gap-1">
+                <button onClick={clearAll} className="rounded bg-gray-200 dark:bg-gray-700 py-2 text-xs font-semibold active:scale-95">Clear</button>
                 <button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="rounded-lg bg-brand-600 text-white text-sm font-semibold py-2 shadow-soft active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded bg-brand-600 text-white text-xs font-semibold py-2 shadow-soft active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {submitting ? 'Saving…' : 'Save & Print'}
                 </button>
@@ -345,49 +308,46 @@ function App() {
             </div>
           </section>
 
-          <section className="space-y-2 rounded-xl flex flex-col min-h-0">
-            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Recent Sessions</h2>
-            <div className="rounded-xl bg-white dark:bg-gray-900 shadow-soft p-3 flex-1 min-h-0 overflow-y-auto">
-              <ul className="grid gap-2">
+          {/* Right side - Sessions List - Uses remaining width */}
+          <section className="flex-1 rounded-lg bg-white dark:bg-gray-900 shadow-soft p-2 flex flex-col min-w-0">
+            <h2 className="text-xs font-semibold text-gray-800 dark:text-gray-200 mb-1">Recent Sessions ({totalMl} ml total)</h2>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <ul className="space-y-1">
                 {sessions.map((session) => (
                   <li key={session.id} className="relative overflow-hidden">
-                    <div className="absolute inset-y-0 right-0 flex items-stretch gap-1 pr-1">
-                      <button onClick={() => handleEdit(session.id)} className="my-1 rounded bg-blue-600 text-white px-2 text-xs">Edit</button>
-                      <button onClick={() => handleDelete(session.id)} className="my-1 rounded bg-red-600 text-white px-2 text-xs">Del</button>
+                    <div className="absolute inset-y-0 right-0 flex items-center gap-1 pr-1 z-10">
+                      <button onClick={() => handleEdit(session.id)} className="rounded bg-blue-600 text-white px-1 text-xs">Edit</button>
+                      <button onClick={() => handleDelete(session.id)} className="rounded bg-red-600 text-white px-1 text-xs">Del</button>
                     </div>
                     <div
                       id={`row-${session.id}`}
                       onTouchStart={onTouchStart(session.id)}
                       onTouchMove={onTouchMove(session.id)}
                       onTouchEnd={onTouchEnd(session.id)}
-                      className="rounded-lg bg-white dark:bg-gray-900 p-3 shadow-soft active:scale-[0.99] transition-transform"
+                      className="rounded bg-gray-50 dark:bg-gray-800 p-2 active:scale-[0.99] transition-transform pr-16"
                     >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                          {session.amount_oz.toFixed(2)} oz
-                          <span className="text-gray-400 dark:text-gray-500 font-medium"> • {ozToMl(session.amount_oz)} ml</span>
-                        </p>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{new Date(session.timestamp).toLocaleString()}</p>
-                        {session.notes && (
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{session.notes}</p>
-                        )}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-gray-900 dark:text-gray-100">
+                            {session.amount_oz.toFixed(2)} oz • {ozToMl(session.amount_oz)} ml
+                          </p>
+                          <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{new Date(session.timestamp).toLocaleString()}</p>
+                          {session.notes && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{session.notes}</p>
+                          )}
+                        </div>
+                        <div className="text-right text-xs text-gray-500 dark:text-gray-400 shrink-0">
+                          <p className="text-xs">F: {new Date(session.use_by_fridge).toLocaleDateString()}</p>
+                          <p className="text-xs">Z: {new Date(session.use_by_frozen).toLocaleDateString()}</p>
+                        </div>
                       </div>
-                      <div className="text-right text-xs text-gray-500 dark:text-gray-400 shrink-0">
-                        <p className="font-medium">Fridge</p>
-                        <p>{new Date(session.use_by_fridge).toLocaleDateString()}</p>
-                        <p className="mt-1 font-medium">Freeze</p>
-                        <p>{new Date(session.use_by_frozen).toLocaleDateString()}</p>
-                      </div>
-                    </div>
                     </div>
                   </li>
                 ))}
               </ul>
             </div>
           </section>
-        </div>
-      </main>
+        </main>
     </div>
   );
 }
