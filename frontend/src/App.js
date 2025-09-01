@@ -241,48 +241,48 @@ function App() {
   const totalMl = useMemo(() => (totalAmount * 29.5735).toFixed(0), [totalAmount]);
 
   return (
-    <div className="bg-gradient-to-b from-brand-50 to-white dark:from-gray-900 dark:to-gray-950 min-h-screen">
+    <div className="bg-gradient-to-b from-brand-50 to-white dark:from-gray-900 dark:to-gray-950 min-h-screen overflow-hidden">
       <header className="sticky top-0 z-10 backdrop-blur bg-white/70 dark:bg-gray-900/70 border-b border-brand-100 dark:border-gray-800">
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-brand-700 dark:text-brand-300">Breast Milk Tracker</h1>
+        <div className="max-w-6xl mx-auto px-3 py-2 flex items-center justify-between gap-2">
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-brand-700 dark:text-brand-300">Breast Milk Tracker</h1>
           <div className="text-right hidden sm:block">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Total Stored</p>
-            <p className="text-lg font-bold text-brand-600 dark:text-brand-400">{totalAmount.toFixed(2)} oz</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
+            <p className="text-sm font-bold text-brand-600 dark:text-brand-400">{totalAmount.toFixed(2)} oz</p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={checkUpdate} className="rounded border border-gray-300 dark:border-gray-700 px-3 py-1 text-sm text-gray-700 dark:text-gray-200">
-              {updateInfo.checking ? 'Checking…' : 'Check Update'}
+          <div className="flex items-center gap-1">
+            <button onClick={checkUpdate} className="rounded border border-gray-300 dark:border-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200">
+              {updateInfo.checking ? 'Checking…' : 'Update'}
             </button>
             {updateInfo.needsUpdate && (
-              <button onClick={triggerUpdate} className="rounded bg-amber-600 text-white px-3 py-1 text-sm">Update</button>
+              <button onClick={triggerUpdate} className="rounded bg-amber-600 text-white px-2 py-1 text-xs">Update</button>
             )}
-            <button onClick={toggleTheme} className="rounded-full border border-gray-300 dark:border-gray-700 px-3 py-1 text-sm text-gray-700 dark:text-gray-200">
-              {theme === 'light' ? 'Dark' : 'Light'}
+            <button onClick={toggleTheme} className="rounded-full border border-gray-300 dark:border-gray-700 px-2 py-1 text-xs text-gray-700 dark:text-gray-200">
+              {theme === 'light' ? '🌙' : '☀️'}
             </button>
           </div>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto px-4 pb-28 pt-4">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <section className="rounded-2xl bg-white dark:bg-gray-900 shadow-soft p-5">
-            <div className="flex items-end justify-between gap-4">
+      <main className="max-w-6xl mx-auto px-3 pb-16 pt-2 h-[calc(100vh-4rem)]">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 h-full">
+          <section className="rounded-xl bg-white dark:bg-gray-900 shadow-soft p-3">
+            <div className="flex items-end justify-between gap-3">
               <div className="flex-1">
-                <label htmlFor="amount" className="block text-sm font-medium text-gray-700">Amount</label>
-                <div className="mt-2 flex items-stretch rounded-xl ring-1 ring-gray-300 focus-within:ring-2 focus-within:ring-brand-500 overflow-hidden">
+                <label htmlFor="amount" className="block text-xs font-medium text-gray-700 dark:text-gray-300">Amount</label>
+                <div className="mt-1 flex items-stretch rounded-lg ring-1 ring-gray-300 focus-within:ring-2 focus-within:ring-brand-500 overflow-hidden">
                   <input
                     inputMode="decimal"
                     type="text"
                     id="amount"
                     value={amount}
                     readOnly
-                    className="flex-1 px-4 py-4 text-2xl sm:text-3xl font-semibold placeholder-gray-300 focus:outline-none bg-transparent text-gray-900 dark:text-gray-100"
+                    className="flex-1 px-3 py-2 text-xl sm:text-2xl font-semibold placeholder-gray-300 focus:outline-none bg-transparent text-gray-900 dark:text-gray-100"
                     placeholder="0.0"
                   />
                   <div className="flex">
                     <button
                       type="button"
                       onClick={() => handleUnitToggle('oz')}
-                      className={`px-4 sm:px-5 py-3 sm:py-4 text-lg font-semibold ${unit === 'oz' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
+                      className={`px-3 py-2 text-sm font-semibold ${unit === 'oz' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
                       aria-pressed={unit === 'oz'}
                     >
                       oz
@@ -290,7 +290,7 @@ function App() {
                     <button
                       type="button"
                       onClick={() => handleUnitToggle('ml')}
-                      className={`px-4 sm:px-5 py-3 sm:py-4 text-lg font-semibold ${unit === 'ml' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
+                      className={`px-3 py-2 text-sm font-semibold ${unit === 'ml' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
                       aria-pressed={unit === 'ml'}
                     >
                       ml
@@ -298,76 +298,83 @@ function App() {
                   </div>
                 </div>
                 {amount && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     ≈ {unit === 'oz' ? ozToMl(parseFloat(amount)) : mlToOz(parseFloat(amount))} {unit === 'oz' ? 'ml' : 'oz'}
                   </p>
                 )}
               </div>
-              <div className="hidden sm:flex flex-col items-end min-w-[10rem]">
-                <p className="text-sm text-gray-500">Total</p>
-                <p className="text-3xl font-extrabold text-brand-600">{totalAmount.toFixed(2)} oz</p>
+              <div className="hidden sm:flex flex-col items-end min-w-[8rem]">
+                <p className="text-xs text-gray-500">Total</p>
+                <p className="text-lg font-bold text-brand-600">{totalAmount.toFixed(2)} oz</p>
                 <p className="text-xs text-gray-400">(~{totalMl} ml)</p>
               </div>
             </div>
 
-            <div className="mt-4">
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes (optional)</label>
+            <div className="mt-3">
+              <label htmlFor="notes" className="block text-xs font-medium text-gray-700 dark:text-gray-300">Notes</label>
               <textarea
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows="3"
-                className="mt-2 block w-full rounded-xl border-gray-300 dark:border-gray-700 bg-transparent text-gray-900 dark:text-gray-100 focus:border-brand-500 focus:ring-brand-500"
-                placeholder="e.g., Left side, morning pump, baby just fed"
+                rows="2"
+                className="mt-1 block w-full rounded-lg border-gray-300 dark:border-gray-700 bg-transparent text-sm text-gray-900 dark:text-gray-100 focus:border-brand-500 focus:ring-brand-500"
+                placeholder="e.g., Left side, morning pump"
               />
             </div>
 
-            {/* On-screen keypad */}
-            <div className="mt-5 select-none">
-              <div className="grid grid-cols-3 gap-3">
+            {/* Compact on-screen keypad */}
+            <div className="mt-3 select-none">
+              <div className="grid grid-cols-3 gap-2">
                 {[1,2,3,4,5,6,7,8,9].map(n => (
-                  <button key={n} onClick={() => appendDigit(String(n))} className="rounded-xl bg-gray-100 dark:bg-gray-800 py-4 text-2xl font-bold active:scale-95">{n}</button>
+                  <button key={n} onClick={() => appendDigit(String(n))} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-2 text-lg font-bold active:scale-95">{n}</button>
                 ))}
-                <button onClick={() => appendDigit('.')} className="rounded-xl bg-gray-100 dark:bg-gray-800 py-4 text-2xl font-bold active:scale-95">.</button>
-                <button onClick={() => appendDigit('0')} className="rounded-xl bg-gray-100 dark:bg-gray-800 py-4 text-2xl font-bold active:scale-95">0</button>
-                <button onClick={backspace} className="rounded-xl bg-amber-500 text-white py-4 text-xl font-semibold active:scale-95">⌫</button>
+                <button onClick={() => appendDigit('.')} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-2 text-lg font-bold active:scale-95">.</button>
+                <button onClick={() => appendDigit('0')} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-2 text-lg font-bold active:scale-95">0</button>
+                <button onClick={backspace} className="rounded-lg bg-amber-500 text-white py-2 text-lg font-semibold active:scale-95">⌫</button>
               </div>
-              <div className="mt-3">
-                <button onClick={clearAll} className="w-full rounded-xl bg-gray-200 dark:bg-gray-700 py-3 text-sm font-semibold active:scale-95">Clear</button>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button onClick={clearAll} className="rounded-lg bg-gray-200 dark:bg-gray-700 py-2 text-sm font-semibold active:scale-95">Clear</button>
+                <button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="rounded-lg bg-brand-600 text-white text-sm font-semibold py-2 shadow-soft active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? 'Saving…' : 'Save & Print'}
+                </button>
               </div>
             </div>
           </section>
 
-          <section className="space-y-3 rounded-2xl">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Pumping Sessions</h2>
-            <div className="rounded-2xl bg-white dark:bg-gray-900 shadow-soft p-4 max-h-[calc(100vh-220px)] overflow-y-auto">
-              <ul className="grid gap-3">
+          <section className="space-y-2 rounded-xl flex flex-col min-h-0">
+            <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">Recent Sessions</h2>
+            <div className="rounded-xl bg-white dark:bg-gray-900 shadow-soft p-3 flex-1 min-h-0 overflow-y-auto">
+              <ul className="grid gap-2">
                 {sessions.map((session) => (
                   <li key={session.id} className="relative overflow-hidden">
-                    <div className="absolute inset-y-0 right-0 flex items-stretch gap-2 pr-2">
-                      <button onClick={() => handleEdit(session.id)} className="my-2 rounded-lg bg-blue-600 text-white px-3 text-sm">Edit</button>
-                      <button onClick={() => handleDelete(session.id)} className="my-2 rounded-lg bg-red-600 text-white px-3 text-sm">Delete</button>
+                    <div className="absolute inset-y-0 right-0 flex items-stretch gap-1 pr-1">
+                      <button onClick={() => handleEdit(session.id)} className="my-1 rounded bg-blue-600 text-white px-2 text-xs">Edit</button>
+                      <button onClick={() => handleDelete(session.id)} className="my-1 rounded bg-red-600 text-white px-2 text-xs">Del</button>
                     </div>
                     <div
                       id={`row-${session.id}`}
                       onTouchStart={onTouchStart(session.id)}
                       onTouchMove={onTouchMove(session.id)}
                       onTouchEnd={onTouchEnd(session.id)}
-                      className="rounded-2xl bg-white dark:bg-gray-900 p-4 shadow-soft active:scale-[0.99] transition-transform"
+                      className="rounded-lg bg-white dark:bg-gray-900 p-3 shadow-soft active:scale-[0.99] transition-transform"
                     >
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                        <p className="text-sm font-bold text-gray-900 dark:text-gray-100">
                           {session.amount_oz.toFixed(2)} oz
                           <span className="text-gray-400 dark:text-gray-500 font-medium"> • {ozToMl(session.amount_oz)} ml</span>
                         </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">{new Date(session.timestamp).toLocaleString()}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 truncate">{new Date(session.timestamp).toLocaleString()}</p>
                         {session.notes && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">{session.notes}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{session.notes}</p>
                         )}
                       </div>
                       <div className="text-right text-xs text-gray-500 dark:text-gray-400 shrink-0">
-                        <p className="font-medium">Refrigerate</p>
+                        <p className="font-medium">Fridge</p>
                         <p>{new Date(session.use_by_fridge).toLocaleDateString()}</p>
                         <p className="mt-1 font-medium">Freeze</p>
                         <p>{new Date(session.use_by_frozen).toLocaleDateString()}</p>
@@ -381,18 +388,6 @@ function App() {
           </section>
         </div>
       </main>
-
-      <div className="fixed inset-x-0 bottom-0 z-20 bg-white/90 dark:bg-gray-900/90 backdrop-blur border-t border-gray-200 dark:border-gray-800">
-        <div className="max-w-6xl mx-auto px-4 py-3">
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="w-full rounded-xl bg-brand-600 text-white text-lg font-semibold py-4 shadow-soft active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {submitting ? 'Saving…' : 'Save & Print Label'}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
