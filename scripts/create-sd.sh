@@ -389,8 +389,9 @@ if [[ ! -d Breast_Milk_Tracker ]]; then
   git clone https://github.com/josephwaligorski/Breast_Milk_Tracker.git || true
 fi
 cd Breast_Milk_Tracker || exit 0
-# Build if no image was preloaded
-/usr/bin/docker compose up -d --build || /usr/bin/docker-compose up -d --build || true
+# Try to start without rebuilding if a prebuilt image was loaded; otherwise build
+/usr/bin/docker compose up -d --no-build || /usr/bin/docker-compose up -d --no-build || \
+  /usr/bin/docker compose up -d --build || /usr/bin/docker-compose up -d --build || true
 mkdir -p "$(dirname "$STAMP")"; touch "$STAMP"
 echo "[bmt] finished $(date -Is)"
 FB
@@ -434,12 +435,14 @@ fi
 if [[ $PREBUILD_IMAGE -eq 1 ]]; then
   if [[ -n "$DOCKER" ]]; then
     echo "Attempting to prebuild Docker image ($IMAGE_TAG) for linux/arm64..."
-    # Ensure buildx exists and use docker-container driver for exporters
-    if ! docker buildx ls >/dev/null 2>&1; then
+    # Ensure we have and use a docker-container builder (required for tar exporter)
+    if ! docker buildx ls | grep -q '^bmtx\s'; then
       echo "Creating docker buildx builder (docker-container)..."
-      docker buildx create --name bmtx --driver docker-container --use >/dev/null 2>&1 || true
+      docker buildx create --name bmtx --driver docker-container >/dev/null 2>&1 || true
     fi
-    # Bootstrap QEMU emulation if needed
+    docker buildx use bmtx >/dev/null 2>&1 || true
+    # Install binfmt for arm64 and bootstrap QEMU emulation
+    docker run --privileged --rm tonistiigi/binfmt --install arm64 >/dev/null 2>&1 || true
     docker buildx inspect --bootstrap >/dev/null 2>&1 || true
     TARBALL="$TMPDIR/bmt-image.tar"
     # Preferred: export directly to tar (no daemon load)
