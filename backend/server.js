@@ -102,7 +102,7 @@ app.post('/api/print', async (req, res) => {
       // Build a simple TSPL program. Coordinates are in dots (at printer dpi). Assume 203dpi common default.
       const dpi = 203;
       const pad = 30; // More left padding
-      const y1 = 20, y2 = 50, y3 = 85, y4 = 115; // Increased spacing between lines
+      const y1 = 20, y2 = 50, y3 = 95, y4 = 125; // Increased spacing after volume (y3 moved from 85 to 95)
       const tsplLines = [
         `SIZE ${wIn.toFixed(3)},${hIn.toFixed(3)}`,
         'GAP 0.12,0', // Gap between labels (0.12 inches)
