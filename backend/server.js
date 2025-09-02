@@ -111,14 +111,14 @@ app.post('/api/print', async (req, res) => {
         'OFFSET 0.0', // Start printing from beginning of label
         'SET TEAR ON', // Enable tear-off mode
         'CLS',
-        // Date/time
-        `TEXT ${pad},${y1},"0",0,1,1,"${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}"`,
+        // Date/time - Force Eastern timezone display
+        `TEXT ${pad},${y1},"0",0,1,1,"${dt.toLocaleDateString('en-US', {timeZone: 'America/New_York'})} ${dt.toLocaleTimeString('en-US', {timeZone: 'America/New_York'})}"`,
         // Amount big - using smaller font to leave more room
         `TEXT ${pad},${y2},"0",0,1,2,"${oz.toFixed(2)} oz (${ml} ml)"`,
         // Notes (truncated) - positioned lower to avoid overlap
         s.notes ? `TEXT ${pad},${y3},"0",0,1,1,"${String(s.notes).replace(/"/g,'\"').slice(0, 28)}"` : '',
         // Use-by - positioned at bottom
-        `TEXT ${pad},${y4},"0",0,1,1,"Fridge: ${new Date(s.use_by_fridge).toLocaleDateString()}  Freezer: ${new Date(s.use_by_frozen).toLocaleDateString()}"`,
+        `TEXT ${pad},${y4},"0",0,1,1,"Fridge: ${new Date(s.use_by_fridge).toLocaleDateString('en-US', {timeZone: 'America/New_York'})}  Freezer: ${new Date(s.use_by_frozen).toLocaleDateString('en-US', {timeZone: 'America/New_York'})}"`,
         'PRINT 1,1',
         'FORMFEED' // Advance label to tear-off position
       ].filter(Boolean);
