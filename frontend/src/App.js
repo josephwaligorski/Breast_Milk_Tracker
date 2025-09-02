@@ -230,80 +230,80 @@ function App() {
           </div>
         </div>
       </header>
-      <main className="px-2 py-1 h-[calc(100vh-3rem)] flex gap-2">
-          {/* Left side - Input and Keypad - Bigger for touchscreen */}
-          <section className="w-96 rounded-lg bg-white dark:bg-gray-900 shadow-soft p-3 flex flex-col">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div className="flex-1">
-                <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Amount</label>
-                <div className="mt-2 flex items-stretch rounded ring-1 ring-gray-300 focus-within:ring-2 focus-within:ring-brand-500 overflow-hidden">
-                  <input
-                    inputMode="decimal"
-                    type="text"
-                    id="amount"
-                    value={amount}
-                    readOnly
-                    className="flex-1 px-4 py-3 text-2xl font-semibold placeholder-gray-300 focus:outline-none bg-transparent text-gray-900 dark:text-gray-100"
-                    placeholder="0.0"
-                  />
-                  <div className="flex">
-                    <button
-                      type="button"
-                      onClick={() => handleUnitToggle('oz')}
-                      className={`px-4 py-3 text-base font-semibold ${unit === 'oz' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
-                      aria-pressed={unit === 'oz'}
-                    >
-                      oz
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleUnitToggle('ml')}
-                      className={`px-4 py-3 text-base font-semibold ${unit === 'ml' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
-                      aria-pressed={unit === 'ml'}
-                    >
-                      ml
-                    </button>
-                  </div>
+      <main className="px-2 py-1 h-[calc(100vh-3rem)] flex gap-2 overflow-hidden">
+          {/* Left side - Input and Keypad - Optimized for 800x480 touchscreen */}
+          <section className="w-96 rounded-lg bg-white dark:bg-gray-900 shadow-soft p-2 flex flex-col min-h-0">
+            {/* Amount input with inline conversion - more compact */}
+            <div className="mb-2 flex-shrink-0">
+              <label htmlFor="amount" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Amount</label>
+              <div className="flex items-stretch rounded ring-1 ring-gray-300 focus-within:ring-2 focus-within:ring-brand-500 overflow-hidden">
+                <input
+                  inputMode="decimal"
+                  type="text"
+                  id="amount"
+                  value={amount}
+                  readOnly
+                  className="flex-1 px-3 py-2 text-xl font-semibold placeholder-gray-300 focus:outline-none bg-transparent text-gray-900 dark:text-gray-100"
+                  placeholder="0.0"
+                />
+                <div className="flex">
+                  <button
+                    type="button"
+                    onClick={() => handleUnitToggle('oz')}
+                    className={`px-3 py-2 text-sm font-semibold ${unit === 'oz' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
+                    aria-pressed={unit === 'oz'}
+                  >
+                    oz
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleUnitToggle('ml')}
+                    className={`px-3 py-2 text-sm font-semibold ${unit === 'ml' ? 'bg-brand-600 text-white' : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200'} active:scale-95 transition-transform`}
+                    aria-pressed={unit === 'ml'}
+                  >
+                    ml
+                  </button>
                 </div>
-              </div>
-              {/* Compact conversion display - fixed width to prevent layout shift */}
-              <div className="w-24 text-right flex-shrink-0">
-                {amount && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    ≈{unit === 'oz' ? ozToMl(parseFloat(amount)) : mlToOz(parseFloat(amount))}{unit === 'oz' ? 'ml' : 'oz'}
-                  </p>
-                )}
+                {/* Inline conversion display */}
+                <div className="px-2 py-2 bg-gray-50 dark:bg-gray-800 border-l border-gray-300 dark:border-gray-700 min-w-[4rem] flex items-center justify-center">
+                  {amount && (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
+                      ≈{unit === 'oz' ? ozToMl(parseFloat(amount)) : mlToOz(parseFloat(amount))}{unit === 'oz' ? 'ml' : 'oz'}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
 
-            <div className="mb-3 flex-shrink-0">
-              <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes</label>
+            {/* Notes - more compact */}
+            <div className="mb-2 flex-shrink-0">
+              <label htmlFor="notes" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
               <textarea
                 id="notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows="2"
-                className="mt-2 block w-full rounded text-sm border-gray-300 dark:border-gray-700 bg-transparent text-gray-900 dark:text-gray-100 focus:border-brand-500 focus:ring-brand-500 py-2 px-3"
+                rows="1"
+                className="block w-full rounded text-xs border-gray-300 dark:border-gray-700 bg-transparent text-gray-900 dark:text-gray-100 focus:border-brand-500 focus:ring-brand-500 py-1 px-2"
                 placeholder="e.g., Left side, morning"
               />
             </div>
 
-            {/* Large touchscreen keypad */}
-            <div className="flex-1 select-none">
-              <div className="grid grid-cols-3 gap-3 mb-3">
+            {/* Large touchscreen keypad - takes remaining space */}
+            <div className="flex-1 select-none flex flex-col min-h-0">
+              <div className="grid grid-cols-3 gap-2 mb-2 flex-1">
                 {[1,2,3,4,5,6,7,8,9].map(n => (
-                  <button key={n} onClick={() => appendDigit(String(n))} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-4 text-xl font-bold active:scale-95 min-h-[3rem]">{n}</button>
+                  <button key={n} onClick={() => appendDigit(String(n))} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-3 text-lg font-bold active:scale-95 min-h-[2.5rem]">{n}</button>
                 ))}
-                <button onClick={() => appendDigit('.')} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-4 text-xl font-bold active:scale-95 min-h-[3rem]">.</button>
-                <button onClick={() => appendDigit('0')} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-4 text-xl font-bold active:scale-95 min-h-[3rem]">0</button>
-                <button onClick={backspace} className="rounded-lg bg-amber-500 text-white py-4 text-xl font-semibold active:scale-95 min-h-[3rem]">⌫</button>
+                <button onClick={() => appendDigit('.')} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-3 text-lg font-bold active:scale-95 min-h-[2.5rem]">.</button>
+                <button onClick={() => appendDigit('0')} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-3 text-lg font-bold active:scale-95 min-h-[2.5rem]">0</button>
+                <button onClick={backspace} className="rounded-lg bg-amber-500 text-white py-3 text-lg font-semibold active:scale-95 min-h-[2.5rem]">⌫</button>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button onClick={clearAll} className="rounded-lg bg-gray-200 dark:bg-gray-700 py-3 text-base font-semibold active:scale-95 min-h-[3rem]">Clear</button>
+              <div className="grid grid-cols-2 gap-2 flex-shrink-0">
+                <button onClick={clearAll} className="rounded-lg bg-gray-200 dark:bg-gray-700 py-2 text-sm font-semibold active:scale-95 min-h-[2.5rem]">Clear</button>
                 <button
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="rounded-lg bg-brand-600 text-white text-base font-semibold py-3 shadow-soft active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed min-h-[3rem]"
+                  className="rounded-lg bg-brand-600 text-white text-sm font-semibold py-2 shadow-soft active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed min-h-[2.5rem]"
                 >
                   {submitting ? 'Saving…' : 'Save & Print'}
                 </button>
