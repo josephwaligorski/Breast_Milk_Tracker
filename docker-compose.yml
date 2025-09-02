@@ -20,6 +20,9 @@ services:
       # Mount CUPS config so container can access host CUPS daemon
       - /etc/cups/client.conf:/etc/cups/client.conf:ro
       - /var/run/cups/cups.sock:/var/run/cups/cups.sock
+      # Mount timezone data from host
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     # Enable access to USB devices for direct printer access
     devices:
       - /dev/usb:/dev/usb
