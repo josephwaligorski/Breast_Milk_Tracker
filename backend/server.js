@@ -101,8 +101,8 @@ app.post('/api/print', async (req, res) => {
       const hIn = 1.0;
       // Build a simple TSPL program. Coordinates are in dots (at printer dpi). Assume 203dpi common default.
       const dpi = 203;
-      const pad = 10; // dots
-      const y1 = 10, y2 = 38, y3 = 60, y4 = 80;
+      const pad = 30; // More left padding (increased from 10 to 30)
+      const y1 = 15, y2 = 40, y3 = 75, y4 = 95; // Adjusted Y positions to prevent overlap
       const tsplLines = [
         `SIZE ${wIn.toFixed(3)},${hIn.toFixed(3)}`,
         'GAP 0,0',
@@ -111,11 +111,11 @@ app.post('/api/print', async (req, res) => {
         'CLS',
         // Date/time
         `TEXT ${pad},${y1},"0",0,1,1,"${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}"`,
-        // Amount big
-        `TEXT ${pad},${y2},"0",0,2,2,"${oz.toFixed(2)} oz (${ml} ml)"`,
-        // Notes (truncated)
-        s.notes ? `TEXT ${pad},${y3},"0",0,1,1,"${String(s.notes).replace(/"/g,'\"').slice(0, 32)}"` : '',
-        // Use-by
+        // Amount big - using smaller font to leave more room
+        `TEXT ${pad},${y2},"0",0,1,2,"${oz.toFixed(2)} oz (${ml} ml)"`,
+        // Notes (truncated) - positioned lower to avoid overlap
+        s.notes ? `TEXT ${pad},${y3},"0",0,1,1,"${String(s.notes).replace(/"/g,'\"').slice(0, 28)}"` : '',
+        // Use-by - positioned at bottom
         `TEXT ${pad},${y4},"0",0,1,1,"F: ${new Date(s.use_by_fridge).toLocaleDateString()}  Z: ${new Date(s.use_by_frozen).toLocaleDateString()}"`,
         'PRINT 1,1'
       ].filter(Boolean);
