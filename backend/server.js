@@ -118,7 +118,7 @@ app.post('/api/print', async (req, res) => {
         // Notes (truncated) - positioned lower to avoid overlap
         s.notes ? `TEXT ${pad},${y3},"0",0,1,1,"${String(s.notes).replace(/"/g,'\"').slice(0, 28)}"` : '',
         // Use-by - positioned at bottom
-        `TEXT ${pad},${y4},"0",0,1,1,"F: ${new Date(s.use_by_fridge).toLocaleDateString()}  Z: ${new Date(s.use_by_frozen).toLocaleDateString()}"`,
+        `TEXT ${pad},${y4},"0",0,1,1,"Fridge: ${new Date(s.use_by_fridge).toLocaleDateString()}  Freezer: ${new Date(s.use_by_frozen).toLocaleDateString()}"`,
         'PRINT 1,1',
         'FORMFEED' // Advance label to tear-off position
       ].filter(Boolean);
