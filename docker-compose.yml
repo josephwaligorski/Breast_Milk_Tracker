@@ -13,6 +13,8 @@ services:
       LABEL_MEDIA: ${LABEL_MEDIA}
       ORIENTATION: ${ORIENTATION}
       PRINT_FIT: ${PRINT_FIT}
+      # Set timezone to match the Pi host
+      TZ: America/New_York
     volumes:
       - ./backend/data.json:/app/data.json
       # Mount CUPS config so container can access host CUPS daemon
