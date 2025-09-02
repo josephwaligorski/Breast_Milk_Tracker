@@ -101,13 +101,15 @@ app.post('/api/print', async (req, res) => {
       const hIn = 1.0;
       // Build a simple TSPL program. Coordinates are in dots (at printer dpi). Assume 203dpi common default.
       const dpi = 203;
-      const pad = 30; // More left padding (increased from 10 to 30)
-      const y1 = 15, y2 = 40, y3 = 75, y4 = 95; // Adjusted Y positions to prevent overlap
+      const pad = 30; // More left padding
+      const y1 = 20, y2 = 50, y3 = 85, y4 = 115; // Increased spacing between lines
       const tsplLines = [
         `SIZE ${wIn.toFixed(3)},${hIn.toFixed(3)}`,
-        'GAP 0,0',
+        'GAP 0.12,0', // Gap between labels (0.12 inches)
         'DIRECTION 1',
         'REFERENCE 0,0',
+        'OFFSET 0.0', // Start printing from beginning of label
+        'SET TEAR ON', // Enable tear-off mode
         'CLS',
         // Date/time
         `TEXT ${pad},${y1},"0",0,1,1,"${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}"`,
@@ -117,7 +119,8 @@ app.post('/api/print', async (req, res) => {
         s.notes ? `TEXT ${pad},${y3},"0",0,1,1,"${String(s.notes).replace(/"/g,'\"').slice(0, 28)}"` : '',
         // Use-by - positioned at bottom
         `TEXT ${pad},${y4},"0",0,1,1,"F: ${new Date(s.use_by_fridge).toLocaleDateString()}  Z: ${new Date(s.use_by_frozen).toLocaleDateString()}"`,
-        'PRINT 1,1'
+        'PRINT 1,1',
+        'FORMFEED' // Advance label to tear-off position
       ].filter(Boolean);
       const program = tsplLines.join('\n') + '\n';
 
