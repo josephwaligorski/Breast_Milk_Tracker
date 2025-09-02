@@ -121,6 +121,19 @@ app.post('/api/print', async (req, res) => {
       ].filter(Boolean);
       const program = tsplLines.join('\n') + '\n';
 
+      // Try direct USB printing first (since CUPS seems to have issues)
+      const directPrint = process.env.DIRECT_PRINT === 'true' || process.env.DIRECT_PRINT === '1';
+      if (directPrint) {
+        try {
+          const fs = require('fs');
+          fs.writeFileSync('/dev/usb/lp0', program);
+          return res.json({ status: 'printed', mode: 'tspl-direct' });
+        } catch (err) {
+          console.error('Direct print failed:', err.message);
+          // Fall back to CUPS
+        }
+      }
+
       const printer = process.env.PRINTER || process.env.BMT_PRINTER;
       const args = ['-o', 'raw'];
       if (printer) args.push('-d', printer);
