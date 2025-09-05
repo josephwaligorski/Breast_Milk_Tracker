@@ -17,7 +17,7 @@ services:
       # Set timezone to match the Pi host
       - TZ=America/New_York
     volumes:
-      - ./backend/data.json:/app/data.json
+      - ./backend/data:/app/data
       # Mount CUPS config so container can access host CUPS daemon
       - /etc/cups/client.conf:/etc/cups/client.conf:ro
       - /var/run/cups/cups.sock:/var/run/cups/cups.sock

@@ -9,7 +9,8 @@ const PDFDocument = require('pdfkit');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const DATA_FILE = path.join(__dirname, 'data.json');
+const DATA_DIR = path.join(__dirname, 'data');
+const DATA_FILE = path.join(DATA_DIR, 'data.json');
 
 // Middleware
 app.use(express.json());
@@ -34,6 +35,8 @@ const readData = async () => {
 };
 
 const writeData = async (data) => {
+  // Ensure data dir exists
+  try { await fs.mkdir(DATA_DIR, { recursive: true }); } catch {}
   await fs.writeFile(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
 };
 
