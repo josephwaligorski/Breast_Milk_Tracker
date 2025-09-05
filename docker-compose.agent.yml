@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  bmt-agent:
+    image: breast-milk-tracker:latest
+    build: .
+    container_name: bmt-agent
+    environment:
+      - NODE_ENV=production
+      - CENTRAL_MODE=0
+      - CENTRAL_URL=${CENTRAL_URL:-http://localhost:5000}
+      - PRINTER_ID=${PRINTER_ID:-pi-printer-1}
+      - INTERVAL_MS=${INTERVAL_MS:-2000}
+      - DEVICE=${DEVICE:-/dev/usb/lp0}
+    # Map the USB device for direct TSPL
+    devices:
+      - /dev/usb:/dev/usb
+    network_mode: host
+    # Start the agent script
+    command: ["node", "/app/agent.js"]

@@ -241,3 +241,32 @@ Flags reference (subset):
 - `--no-kiosk`, `--kiosk-url <url>`, `--lite`, `-y/--yes`
 
 Result: Insert the SD in the Pi, power on, wait a few minutes for the first-boot installer to complete, and the kiosk should appear automatically.
+
+---
+
+## Central server + Pi print agent
+
+You can host the app anywhere and keep the Pi as a dedicated print station.
+
+Server mode:
+
+- Run the standard `docker compose up -d --build` on the central host.
+- Set `CENTRAL_MODE=1` in the server environment to enqueue print jobs instead of printing locally.
+
+Agent mode (on the Pi):
+
+- Start the agent with the provided compose file:
+  - `docker compose -f docker-compose.agent.yml up -d --build`
+- Environment variables:
+  - `CENTRAL_URL` — base URL of the central server (e.g., `http://server:5000`)
+  - `PRINTER_ID` — unique ID for this Pi (e.g., `nursery-pi`)
+  - `INTERVAL_MS` — polling interval in ms (default `2000`)
+  - `DEVICE` — printer device path (default `/dev/usb/lp0`)
+
+Flow:
+
+- UI calls `POST /api/print` on the server. In central mode, server stores a job in `data.json`.
+- Agent sends heartbeats and polls `POST /api/agents/next-job` for jobs matching its `PRINTER_ID`.
+- Agent writes a TSPL program directly to `/dev/usb/lp0` and reports completion via `POST /api/print/:jobId/complete`.
+
+Tip: You can also pass `{ printerId }` in the body to `POST /api/print` to target a specific agent even if `CENTRAL_MODE` is off; the server will enqueue the job when `printerId` is provided.

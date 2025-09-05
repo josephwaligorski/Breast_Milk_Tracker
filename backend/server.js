@@ -17,11 +17,16 @@ app.use(express.json());
 const readData = async () => {
   try {
     const data = await fs.readFile(DATA_FILE, 'utf8');
-    return JSON.parse(data);
+    const parsed = JSON.parse(data);
+    // Backward-compatible defaults
+    if (!parsed.sessions) parsed.sessions = [];
+    if (!parsed.printJobs) parsed.printJobs = [];
+    if (!parsed.agents) parsed.agents = {};
+    return parsed;
   } catch (error) {
     if (error.code === 'ENOENT') {
       // If file doesn't exist, initialize with empty sessions
-      return { sessions: [] };
+      return { sessions: [], printJobs: [], agents: {} };
     }
     throw error;
   }
@@ -81,7 +86,7 @@ app.post('/api/sessions', async (req, res) => {
 // Expects body: { sessionId } or full session payload
 app.post('/api/print', async (req, res) => {
   try {
-    const { sessionId, session } = req.body || {};
+  const { sessionId, session, printerId } = req.body || {};
     let s = session;
     if (!s && sessionId) {
       const data = await readData();
@@ -92,6 +97,29 @@ app.post('/api/print', async (req, res) => {
     const dt = new Date(s.timestamp);
     const oz = Number(s.amount_oz || 0);
     const ml = (oz * 29.5735).toFixed(0);
+
+    // If CENTRAL_MODE is enabled or a target printerId is provided, enqueue for a remote agent
+    const centralMode = (process.env.CENTRAL_MODE || '0') === '1';
+    if (centralMode || printerId) {
+      const store = await readData();
+      const job = {
+        id: uuidv4(),
+        printerId: printerId || null,
+        status: 'queued',
+        createdAt: new Date().toISOString(),
+        session: {
+          id: s.id,
+          timestamp: s.timestamp,
+          amount_oz: Number(s.amount_oz || 0),
+          notes: s.notes || '',
+          use_by_fridge: s.use_by_fridge,
+          use_by_frozen: s.use_by_frozen,
+        },
+      };
+      store.printJobs.push(job);
+      await writeData(store);
+      return res.json({ status: 'queued', jobId: job.id, printerId: job.printerId });
+    }
 
     // Support TSPL raw printing for label printers like Polono PL420
     const printMode = (process.env.PRINT_MODE || '').toLowerCase();
@@ -116,7 +144,7 @@ app.post('/api/print', async (req, res) => {
         // Amount big - using smaller font to leave more room
         `TEXT ${pad},${y2},"0",0,1,2,"${oz.toFixed(2)} oz (${ml} ml)"`,
         // Notes (truncated) - positioned lower to avoid overlap
-        s.notes ? `TEXT ${pad},${y3},"0",0,1,1,"${String(s.notes).replace(/"/g,'\"').slice(0, 28)}"` : '',
+  s.notes ? `TEXT ${pad},${y3},"0",0,1,1,"${String(s.notes).replace(/"/g,'\\"').slice(0, 28)}"` : '',
         // Use-by - positioned at bottom
         `TEXT ${pad},${y4},"0",0,1,1,"Fridge: ${new Date(s.use_by_fridge).toLocaleDateString('en-US', {timeZone: 'America/New_York'})}  Freezer: ${new Date(s.use_by_frozen).toLocaleDateString('en-US', {timeZone: 'America/New_York'})}"`,
         'PRINT 1,1',
@@ -203,6 +231,67 @@ app.post('/api/print', async (req, res) => {
     });
   } catch (err) {
     console.error('Print error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// --- Centralized printing: Agent endpoints ---
+// Agent heartbeat to register presence
+app.post('/api/agents/heartbeat', async (req, res) => {
+  try {
+    const { printerId, agentVersion, capabilities } = req.body || {};
+    if (!printerId) return res.status(400).json({ message: 'printerId required' });
+    const store = await readData();
+    store.agents[printerId] = {
+      printerId,
+      lastSeen: new Date().toISOString(),
+      agentVersion: agentVersion || null,
+      capabilities: capabilities || null,
+    };
+    await writeData(store);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Heartbeat failed', e);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Agent pulls next job (FIFO) for a given printerId. If printerId is null, it will receive jobs without a specified printer.
+app.post('/api/agents/next-job', async (req, res) => {
+  try {
+    const { printerId } = req.body || {};
+    const store = await readData();
+    // Find first queued job matching printerId (or null-matching if printerId not provided)
+    const idx = store.printJobs.findIndex(j => j.status === 'queued' && (
+      (printerId && j.printerId === printerId) || (!printerId && !j.printerId)
+    ));
+    if (idx === -1) return res.json({ job: null });
+    const job = store.printJobs[idx];
+    job.status = 'claimed';
+    job.claimedAt = new Date().toISOString();
+    await writeData(store);
+    res.json({ job });
+  } catch (e) {
+    console.error('Next-job failed', e);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Agent reports job completion
+app.post('/api/print/:jobId/complete', async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { success, error } = req.body || {};
+    const store = await readData();
+    const idx = store.printJobs.findIndex(j => j.id === jobId);
+    if (idx === -1) return res.status(404).json({ message: 'Job not found' });
+    store.printJobs[idx].status = success ? 'done' : 'failed';
+    store.printJobs[idx].finishedAt = new Date().toISOString();
+    if (!success) store.printJobs[idx].error = String(error || 'unknown');
+    await writeData(store);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Complete failed', e);
     res.status(500).json({ message: 'Server error' });
   }
 });
