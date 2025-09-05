@@ -24,8 +24,5 @@ services:
       # Mount timezone data from host
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
-    # Enable access to USB devices for direct printer access
-    devices:
-      - /dev/usb:/dev/usb
     # Use host network to access CUPS daemon
     network_mode: host
