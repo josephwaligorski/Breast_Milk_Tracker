@@ -332,7 +332,7 @@ function App() {
               <ul className="space-y-2">
                 {sessions.map((session) => (
                   <li key={session.id} className="relative overflow-hidden">
-                    <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-2 z-10">
+                    <div className="absolute inset-y-0 right-0 flex items-center justify-end gap-2 pr-2 z-10 w-44">
                       <button onClick={() => handleLocalPrint(session.id)} className="rounded bg-green-600 text-white px-3 py-2 text-sm font-medium min-h-[2.5rem]">Print</button>
                       <button onClick={() => handleEdit(session.id)} className="rounded bg-blue-600 text-white px-3 py-2 text-sm font-medium min-h-[2.5rem]">Edit</button>
                       <button onClick={() => handleDelete(session.id)} className="rounded bg-red-600 text-white px-3 py-2 text-sm font-medium min-h-[2.5rem]">Del</button>
@@ -342,7 +342,7 @@ function App() {
                       onTouchStart={onTouchStart(session.id)}
                       onTouchMove={onTouchMove(session.id)}
                       onTouchEnd={onTouchEnd(session.id)}
-                      className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 active:scale-[0.99] transition-transform pr-20 min-h-[4rem]"
+                      className="rounded-lg bg-gray-50 dark:bg-gray-800 p-3 active:scale-[0.99] transition-transform pr-56 min-h-[4rem]"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
