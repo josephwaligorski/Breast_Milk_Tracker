@@ -6,6 +6,13 @@ A touch-friendly React + Node/Express app for logging pumped milk, printing labe
 - Printer: Polono PL420 (TSPL-compatible)
 - Printing modes: TSPL raw (recommended for PL420) or PDF via CUPS
 
+## Deployment options (overview)
+
+- All-in-one on a Raspberry Pi: backend + UI + printer on the Pi (USB or CUPS)
+- Central server + Pi agent(s): run the app anywhere; Pis pull and print jobs via USB
+- Network TSPL printer: backend prints TSPL to printer IP:9100 (no Pi)
+- Browser printing: open a HTML label and use device-native print dialog
+
 ## Quick start (TL;DR)
 
 1. On the Pi, install Docker, docker compose, and CUPS. Add your Polono PL420 in CUPS and note its queue name.
@@ -26,6 +33,58 @@ docker compose up -d --build
 1. Open the app at `http://<pi-ip>:5000` and save a session; it should print immediately.
 
 ---
+
+## Install & operate
+
+Pick one path; you can mix-and-match later.
+
+### A) All-in-one on Raspberry Pi
+
+1) Configure .env (on the Pi)
+
+```bash
+cp .env .env.local 2>/dev/null || true
+# PRINT_MODE=tspl for PL420 (TSPL direct), or leave empty to use CUPS/PDF
+# PRINTER=<CUPS_QUEUE> when using CUPS/PDF mode
+```
+
+1) Start
+
+```bash
+docker compose up -d --build
+```
+
+1) Use
+
+- Open http://\<pi-ip\>:5000
+- Choose Print to: Pi Agent (default), Network, or This Device
+
+### B) Central server + Pi print agent
+
+Server (any host):
+
+```bash
+echo "CENTRAL_MODE=1" >> .env
+docker compose up -d --build
+```
+
+Pi agent (with USB printer):
+
+```bash
+docker compose -f docker-compose.agent.yml up -d --build
+# Env (shell or .env): CENTRAL_URL, PRINTER_ID, DEVICE=/dev/usb/lp0
+```
+
+In the UI, pick “Pi Agent” (optionally set Printer ID to target).
+
+### C) Network TSPL printer (no Pi)
+
+- In the UI, pick “Network” and enter printer IP and port (9100).
+- Or POST /api/print with body `{ sessionId, directTcpPrinter: { host, port } }`.
+
+### D) Print from this device (Bluetooth/AirPrint)
+
+- Tap “Print” on a session, or open `/labels/:id` for a print-optimized HTML label.
 
 ## Full setup guide
 
@@ -153,6 +212,16 @@ cp backup-data.json backend/data.json
 - Set `PRINT_MODE=tspl` and `PRINTER` to your queue name
 - The backend writes a TSPL program to `lp -o raw` (no driver scaling)
 - If the layout needs tweaks, we can adjust coordinates/sizes in the TSPL block in `backend/server.js`
+
+Network TSPL (no Pi):
+
+- If your label printer is reachable over the network (JetDirect 9100 or similar), the backend can print directly over TCP.
+- Send `directTcpPrinter: { host: "<printer-ip>", port: 9100 }` in the body to `POST /api/print`.
+
+Local browser printing (Bluetooth/AirPrint):
+
+- Open `/labels/:id` to render a 2.625" × 1" HTML label and use the device’s native print dialog.
+- The UI now includes a “Print” button on each session to open this.
 
 ### PDF via CUPS
 

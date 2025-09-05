@@ -4,6 +4,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { spawn } = require('child_process');
 const https = require('https');
+const net = require('net');
 const PDFDocument = require('pdfkit');
 
 const app = express();
@@ -86,7 +87,7 @@ app.post('/api/sessions', async (req, res) => {
 // Expects body: { sessionId } or full session payload
 app.post('/api/print', async (req, res) => {
   try {
-  const { sessionId, session, printerId } = req.body || {};
+  const { sessionId, session, printerId, directTcpPrinter } = req.body || {};
     let s = session;
     if (!s && sessionId) {
       const data = await readData();
@@ -97,6 +98,52 @@ app.post('/api/print', async (req, res) => {
     const dt = new Date(s.timestamp);
     const oz = Number(s.amount_oz || 0);
     const ml = (oz * 29.5735).toFixed(0);
+
+    // Support direct TCP TSPL printing to a networked label printer (e.g., port 9100)
+    if (directTcpPrinter && directTcpPrinter.host) {
+      const host = String(directTcpPrinter.host);
+      const port = Number(directTcpPrinter.port || 9100);
+      // Build TSPL program (same as tspl mode)
+      const wIn = 2.625;
+      const hIn = 1.0;
+      const pad = 30;
+      const y1 = 20, y2 = 50, y3 = 95, y4 = 125;
+      const tsplLines = [
+        `SIZE ${wIn.toFixed(3)},${hIn.toFixed(3)}`,
+        'GAP 0.12,0',
+        'DIRECTION 1',
+        'REFERENCE 0,0',
+        'OFFSET 0.0',
+        'SET TEAR ON',
+        'CLS',
+        `TEXT ${pad},${y1},"0",0,1,1,"${dt.toLocaleDateString('en-US', {timeZone: 'America/New_York'})} ${dt.toLocaleTimeString('en-US', {timeZone: 'America/New_York'})}"`,
+        `TEXT ${pad},${y2},"0",0,1,2,"${oz.toFixed(2)} oz (${ml} ml)"`,
+        s.notes ? `TEXT ${pad},${y3},"0",0,1,1,"${String(s.notes).replace(/"/g,'\\"').slice(0, 28)}"` : '',
+        `TEXT ${pad},${y4},"0",0,1,1,"Fridge: ${new Date(s.use_by_fridge).toLocaleDateString('en-US', {timeZone: 'America/New_York'})}  Freezer: ${new Date(s.use_by_frozen).toLocaleDateString('en-US', {timeZone: 'America/New_York'})}"`,
+        'PRINT 1,1',
+        'FORMFEED'
+      ].filter(Boolean);
+      const program = tsplLines.join('\n') + '\n';
+      const sock = net.connect({ host, port });
+      const timeoutMs = Number(process.env.TCP_PRINT_TIMEOUT_MS || 5000);
+      let done = false;
+      const finish = (err) => {
+        if (done) return;
+        done = true;
+        try { sock.destroy(); } catch {}
+        if (err) return res.status(502).json({ message: 'TCP print failed', error: String(err.message || err) });
+        return res.json({ status: 'printed', mode: 'tspl-tcp', host, port });
+      };
+      sock.setTimeout(timeoutMs, () => finish(new Error('timeout')));
+      sock.on('connect', () => {
+        sock.write(program, 'utf8', () => {
+          // some printers close after receiving data; give a short delay
+          setTimeout(() => finish(null), 100);
+        });
+      });
+      sock.on('error', finish);
+      return; // handled
+    }
 
     // If CENTRAL_MODE is enabled or a target printerId is provided, enqueue for a remote agent
     const centralMode = (process.env.CENTRAL_MODE || '0') === '1';
@@ -261,10 +308,18 @@ app.post('/api/agents/next-job', async (req, res) => {
   try {
     const { printerId } = req.body || {};
     const store = await readData();
-    // Find first queued job matching printerId (or null-matching if printerId not provided)
-    const idx = store.printJobs.findIndex(j => j.status === 'queued' && (
-      (printerId && j.printerId === printerId) || (!printerId && !j.printerId)
-    ));
+    // Strategy:
+    // - If printerId provided: prefer jobs explicitly targeted to that printer; otherwise allow unassigned jobs.
+    // - If no printerId provided: only unassigned jobs.
+    let idx = -1;
+    if (printerId) {
+      idx = store.printJobs.findIndex(j => j.status === 'queued' && (j.printerId === printerId));
+      if (idx === -1) {
+        idx = store.printJobs.findIndex(j => j.status === 'queued' && (j.printerId == null));
+      }
+    } else {
+      idx = store.printJobs.findIndex(j => j.status === 'queued' && (j.printerId == null));
+    }
     if (idx === -1) return res.json({ job: null });
     const job = store.printJobs[idx];
     job.status = 'claimed';
@@ -423,6 +478,55 @@ app.post('/api/update', async (req, res) => {
   } catch (e) {
     console.error('Self-update failed', e);
     res.status(500).json({ message: 'Self-update failed' });
+  }
+});
+
+// Printable HTML label for local OS printing from browser
+app.get('/labels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = await readData();
+    const s = data.sessions.find(x => x.id === id);
+    if (!s) return res.status(404).send('Not found');
+    const dt = new Date(s.timestamp);
+    const oz = Number(s.amount_oz || 0);
+    const ml = (oz * 29.5735).toFixed(0);
+    const fridge = new Date(s.use_by_fridge).toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+    const freezer = new Date(s.use_by_frozen).toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Label ${id}</title>
+  <style>
+    @page { size: 2.625in 1in; margin: 0.08in; }
+    body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .label { width: 2.625in; height: 1in; box-sizing: border-box; padding-left: 0.15in; display: flex; flex-direction: column; justify-content: center; }
+    .dt { font-size: 10px; line-height: 1.1; }
+    .amt { font-size: 16px; line-height: 1.1; font-weight: 600; }
+    .notes { font-size: 10px; line-height: 1.1; color: #444; }
+    .useby { font-size: 10px; line-height: 1.1; }
+    .truncate { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  </style>
+  <script>
+    // Auto-print on load for quick tap-to-print
+    window.onload = () => { window.print(); };
+  </script>
+  </head>
+<body>
+  <div class="label">
+    <div class="dt">${dt.toLocaleDateString('en-US', {timeZone: 'America/New_York'})} ${dt.toLocaleTimeString('en-US', {timeZone: 'America/New_York'})}</div>
+    <div class="amt">${oz.toFixed(2)} oz (${ml} ml)</div>
+    ${s.notes ? `<div class="notes truncate">${String(s.notes).slice(0, 60)}</div>` : ''}
+    <div class="useby">Fridge: ${fridge}  Freezer: ${freezer}</div>
+  </div>
+</body>
+</html>`;
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (e) {
+    console.error('HTML label error', e);
+    res.status(500).send('Server error');
   }
 });
 

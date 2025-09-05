@@ -8,6 +8,13 @@ function App() {
   const [totalAmount, setTotalAmount] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [theme, setTheme] = useState(() => (localStorage.getItem('theme') || 'light'));
+  const [printMode, setPrintMode] = useState(() => localStorage.getItem('printMode') || 'agent');
+  const [printerId, setPrinterId] = useState(() => localStorage.getItem('printerId') || '');
+  const [netHost, setNetHost] = useState(() => localStorage.getItem('netHost') || '');
+  const [netPort, setNetPort] = useState(() => {
+    const v = localStorage.getItem('netPort');
+    return v ? Number(v) : 9100;
+  });
   const touchStartX = useRef({});
   const touchTranslateX = useRef({});
   // For on-screen keypad we keep amount as a string and build it with button presses
@@ -49,6 +56,11 @@ function App() {
     fetchSessions();
   }, []);
 
+  useEffect(() => { localStorage.setItem('printMode', printMode); }, [printMode]);
+  useEffect(() => { localStorage.setItem('printerId', printerId || ''); }, [printerId]);
+  useEffect(() => { localStorage.setItem('netHost', netHost || ''); }, [netHost]);
+  useEffect(() => { localStorage.setItem('netPort', String(netPort || '')); }, [netPort]);
+
   const handleUnitToggle = (newUnit) => {
     setUnit(newUnit);
   };
@@ -80,16 +92,31 @@ function App() {
         const newSession = await response.json();
         setSessions([newSession, ...sessions]);
         setTotalAmount(totalAmount + newSession.amount_oz);
-        // Server-side print (no dialog). Fallback to client print if it fails.
+        // Choose print strategy based on selection
         try {
-          const pr = await fetch('/api/print', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sessionId: newSession.id })
-          });
-          if (!pr.ok) throw new Error('print endpoint failed');
+          if (printMode === 'device') {
+            window.open(`/labels/${newSession.id}`, '_blank', 'noopener,noreferrer');
+          } else if (printMode === 'network') {
+            if (!netHost) throw new Error('Network printer host required');
+            const pr = await fetch('/api/print', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sessionId: newSession.id, directTcpPrinter: { host: netHost, port: Number(netPort || 9100) } })
+            });
+            if (!pr.ok) {
+              // Fallback to local print dialog
+              window.open(`/labels/${newSession.id}`, '_blank', 'noopener,noreferrer');
+            }
+          } else {
+            // Agent/queue mode (optionally targeted)
+            await fetch('/api/print', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sessionId: newSession.id, printerId: printerId || undefined })
+            });
+          }
         } catch (e) {
-          try { printLabel(newSession); } catch {}
+          try { window.open(`/labels/${newSession.id}`, '_blank', 'noopener,noreferrer'); } catch {}
         }
         setAmount('');
         setNotes('');
@@ -111,43 +138,7 @@ function App() {
     else root.classList.remove('dark');
   };
 
-  const printLabel = (session) => {
-    // Open a minimal print window with large, high-contrast label
-    const w = window.open('', 'PRINT', 'height=400,width=600');
-    if (!w) return;
-    const dt = new Date(session.timestamp);
-    const html = `<!doctype html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <title>Milk Label</title>
-          <style>
-            @page { size: 80mm auto; margin: 4mm; }
-            body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-            .label { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 14px; }
-            .big { font-size: 24px; font-weight: 800; }
-            .muted { color: #555; font-size: 12px; }
-            .row { display: contents; }
-            .right { text-align: right; }
-            hr { border: 0; border-top: 1px dashed #999; margin: 8px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="label">
-            <div class="row"><div>Date</div><div class="right">${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}</div></div>
-            <div class="row"><div>Amount</div><div class="right big">${session.amount_oz.toFixed(2)} oz (${ozToMl(session.amount_oz)} ml)</div></div>
-            ${session.notes ? `<div class="row"><div>Notes</div><div class="right">${String(session.notes).slice(0, 60)}</div></div>` : ''}
-            <hr />
-            <div class="row"><div>Use by (fridge)</div><div class="right">${new Date(session.use_by_fridge).toLocaleDateString()}</div></div>
-            <div class="row"><div>Use by (freeze)</div><div class="right">${new Date(session.use_by_frozen).toLocaleDateString()}</div></div>
-          </div>
-          <script>window.focus(); setTimeout(() => { try { window.print(); } catch(e){} window.close(); }, 100);</script>
-        </body>
-      </html>`;
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-  };
+  // (deprecated) printLabel helper replaced by /labels/:id route
 
   useEffect(() => {
     applyTheme(theme);
@@ -167,6 +158,11 @@ function App() {
     } catch (e) {
       console.error('Delete failed', e);
     }
+  };
+
+  const handleLocalPrint = (id) => {
+    const url = `/labels/${id}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleEdit = async (id) => {
@@ -298,6 +294,24 @@ function App() {
                 <button onClick={() => appendDigit('0')} className="rounded-lg bg-gray-100 dark:bg-gray-800 py-3 text-lg font-bold active:scale-95 min-h-[2.5rem]">0</button>
                 <button onClick={backspace} className="rounded-lg bg-amber-500 text-white py-3 text-lg font-semibold active:scale-95 min-h-[2.5rem]">⌫</button>
               </div>
+              {/* Print mode selector */}
+              <div className="mb-2 flex items-center gap-2 flex-shrink-0">
+                <label className="text-xs text-gray-600 dark:text-gray-300">Print to</label>
+                <select value={printMode} onChange={(e) => setPrintMode(e.target.value)} className="text-xs rounded border border-gray-300 dark:border-gray-700 bg-transparent px-2 py-1">
+                  <option value="agent">Pi Agent</option>
+                  <option value="network">Network</option>
+                  <option value="device">This Device</option>
+                </select>
+                {printMode === 'agent' && (
+                  <input value={printerId} onChange={(e) => setPrinterId(e.target.value)} placeholder="Printer ID (optional)" className="text-xs rounded border border-gray-300 dark:border-gray-700 bg-transparent px-2 py-1 flex-1" />
+                )}
+                {printMode === 'network' && (
+                  <>
+                    <input value={netHost} onChange={(e) => setNetHost(e.target.value)} placeholder="Printer IP/Host" className="text-xs rounded border border-gray-300 dark:border-gray-700 bg-transparent px-2 py-1 flex-1" />
+                    <input type="number" value={netPort} onChange={(e) => setNetPort(Number(e.target.value))} placeholder="9100" className="w-20 text-xs rounded border border-gray-300 dark:border-gray-700 bg-transparent px-2 py-1" />
+                  </>
+                )}
+              </div>
               <div className="grid grid-cols-2 gap-2 flex-shrink-0">
                 <button onClick={clearAll} className="rounded-lg bg-gray-200 dark:bg-gray-700 py-2 text-sm font-semibold active:scale-95 min-h-[2.5rem]">Clear</button>
                 <button
@@ -319,6 +333,7 @@ function App() {
                 {sessions.map((session) => (
                   <li key={session.id} className="relative overflow-hidden">
                     <div className="absolute inset-y-0 right-0 flex items-center gap-2 pr-2 z-10">
+                      <button onClick={() => handleLocalPrint(session.id)} className="rounded bg-green-600 text-white px-3 py-2 text-sm font-medium min-h-[2.5rem]">Print</button>
                       <button onClick={() => handleEdit(session.id)} className="rounded bg-blue-600 text-white px-3 py-2 text-sm font-medium min-h-[2.5rem]">Edit</button>
                       <button onClick={() => handleDelete(session.id)} className="rounded bg-red-600 text-white px-3 py-2 text-sm font-medium min-h-[2.5rem]">Del</button>
                     </div>
